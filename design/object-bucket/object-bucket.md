@@ -3,7 +3,7 @@
 ## Proposed Feature
 
 Provide Rook-Ceph Object users the ability to request buckets via an ObjectBucketClaim, similar
-to requesting a Persistent Volume using a Persistent Volume Claim. 
+to requesting a volume using a Persistent Volume Claim. 
 
 ### Overview
 
@@ -30,7 +30,7 @@ Rook-Ceph has developed Custom Resource Definitions (CRDs) to support the dynami
 ## Non-Goals
 
 - This design does not describe a generalized bucket provisioner, instead [see here](https://github.com/yard-turkey/lib-bucket-provisioner).
-- This design does not provide users a means of deleting buckets via the Kubernetes API so as to avoid accidental loss of data.  A Delete operation only removes the artifacts greated by the bucket lib on behalf of the OBC (basic Kubernetes housekeeping). Physically deleting the bucket, per the Storage Class' _retainPolicy_ will be considered in a later phase.
+- This design does not provide users a means of deleting buckets via the Kubernetes API so as to avoid accidental loss of data.  A Delete operation only removes the artifacts created by the bucket lib on behalf of the OBC (basic Kubernetes housekeeping). Physically deleting the bucket, per the Storage Class' _retainPolicy_ will be considered in a later phase.
 - This design does not include the Swift interface implementation by Ceph Object.
 - This design does not cover _brownfield_ use cases, meaning use of existing buckets, which may have been created outside of Kubernetes. So only new bucket use case are part of the first phasde.
 
