@@ -2,8 +2,8 @@
 
 ## Proposed Feature
 
-Enable Rook-Ceph Object users the ability to request buckets via an ObjectBucketClaim, similar
-to requesting a Persistent Volume using a Persistent Volume Claim. 
+Provide Rook-Ceph Object users the ability to request buckets via an ObjectBucketClaim, similar
+to requesting a volume using a Persistent Volume Claim. 
 
 ### Overview
 
@@ -12,7 +12,7 @@ There is recent support for a bucket provisioning library, very similar in conce
 [lib-bucket-provisioner](https://github.com/yard-turkey/lib-bucket-provisioner) repo for more
 details. The proposal here covers only the design of Rook-Ceph RGW specific bucket provisioning.
 
-Rook-Ceph has developed Custom Resource Definitions (CRDs) to support the dynamic provisioning of object stores and users (`CephObjectStore`s and `CephObjectStoreUser`s, respectively).  This proposal introduces the next logical step in this design: the addition a controller for handling dynamic bucket creation requests leveraging the ObjectBucketClaim and ObjectBucket library.  The intent is to round out the Rook-Ceph experience for Kubernetes users by providing a single control plane for the managing of Ceph Object components.  The bucket provisioning lib does all of the heavy lifting in terms of watching OBCs and responding to events. The new Rook-Ceph code will support `Provision()` and `Delete` methods and adhere to the generic bucket provisioning interface.
+Rook-Ceph has developed Custom Resource Definitions (CRDs) to support the dynamic provisioning of object stores and users (`CephObjectStore` and `CephObjectStoreUser`, respectively).  This proposal introduces the next logical step in this design: a new controller for handling dynamic bucket creation requests leveraging the object bucket library.  The intent is to round out the Rook-Ceph experience for Kubernetes users by providing a single control plane for the management of Ceph Object components.  The bucket provisioning lib does all of the heavy lifting in terms of watching OBCs and responding to events. The Rook-Ceph bucket provisioner must support `Provision()` and `Delete` methods, adhering to the bucket provisioning lib interface. Rook-Ceph will create the physical bucket, create a bucket owner Secret (if needed), return an `ObjectBucket` (defined by the bucket lib), and return the credentials for use by the pod accessing the bucket.
 
 ## Glossary
 
@@ -23,16 +23,17 @@ Rook-Ceph has developed Custom Resource Definitions (CRDs) to support the dynami
 
 ## Goals
 
-- Provide Rook-Ceph users the ability to dynamically provision object buckets via the Kubernetes API
-- Enable cluster admin control over bucket creation and object store access via the Kubernetes API
-- Restrict users from creating buckets with automation-generated access keys outside of the Kubernetes API (e.g. via `s3cmd` CLI tool)
+- Provide Rook-Ceph users the ability to dynamically provision object buckets via a familiar _claim_ manifest.
+- Provide Rook-Ceph users the ability to easily ingest bucket access data (endpoint, key-pairs) via an established mechanism which synchronizes the start of a pod with the availability of the bucket. This mechanism uses a Secret for bucket credentials and a ConfigMap for the endpoint.
+- Enable cluster admin control over bucket creation and object store access via the Kubernetes API and RBAC rules.
+- Restrict users from creating buckets using the automation-generated access keys outside of the Kubernetes API (e.g. via `s3cmd` CLI tool).
+- Prevent deletion of the physical bucket even when the _reclaimPolicy_ is "delete". This is to avoid accidental loss of data and may change at a later date.  For now, a Delete operation only removes the artifacts created by the bucket lib on behalf of the OBC (basic Kubernetes housekeeping).
 
 ## Non-Goals
 
 - This design does not describe a generalized bucket provisioner, instead [see here](https://github.com/yard-turkey/lib-bucket-provisioner).
-- This design does not provide users a means of deleting buckets via the Kubernetes API so as to avoid accidental loss of data.  A Delete operation only removes the artifacts created by the bucket lib on behalf of the OBC (basic Kubernetes housekeeping). Physically deleting the bucket, per the Storage Class' _retainPolicy_, considered in a later phase.
 - This design does not include the Swift interface implementation by Ceph Object.
-- This design does not cover _brownfield_ use cases, meaning use of existing buckets which may have been created outside of Kubernetes.
+- This design does not cover _brownfield_ use cases, meaning use of existing buckets, which may have been created outside of Kubernetes. So only new bucket use cases are part of the first phase.
 
 ## Requirements
 
@@ -69,7 +70,7 @@ _As an admin, I want to expose an existing Ceph object store to users so they ca
 
 _As an admin, I want to quickly list all dynamically created buckets in a cluster and access their object store specific metadata._
 
-- The admin can get an at-a-glance picture of provisioned buckets by listing all ObjectBuckets in the cluster.
+- The admin can get an at-a-glance picture of provisioned buckets by listing all ObjectBuckets in the cluster. Eg. `kubectl get objectbucket --selector='ceph.rook.io/object'`
 - The admin can get metadata specific to the bucket and its object store by executing a `kubectl describe` on a particular ObjectBucket.
 
 **Use Case: Provision a Bucket** 
@@ -100,12 +101,11 @@ _As a Kubernetes user, I want to leverage the Kubernetes API to create object st
 _As a Kubernetes user, I want to delete ObjectBucketClaim instances and cleanup generated API resources._
 
 1. The user deletes the OBC via `kubectl delete objectbucketclaim -n default FOO`.
-1. The OBC is marked for deletion and left in the foreground and the `Delete()` method, implemented by this provisioner, is invoked by the bucket lib.
-1. The respective ConfigMap and user Secret are deleted (done by the bucket lib).
-1. The OBC is garbage collected.
-1. The OB phase is changed from "bound" to "lost"
-
-    Note: this does not cause the deletion of the OB.  Since the actual bucket is not deleted, it is reasonable that it should still tracked in Kubernetes.
+1. The OBC is marked for deletion and left in the foreground.
+1. **If** the OB's _reclaimPolicy_ is "delete", the `Delete()` method, implemented by this provisioner, is invoked by the bucket lib. The rook-ceph provisioner will **not** delete the physical bucket in the first phase, though that may occur later. The credentials created for this bucket _could_ be deleted or expired but that is a TBD.
+1. The respective ConfigMap and Secret are deleted (done by the bucket lib).
+1. The OBC is garbage collected (done by Kubernetes).
+1. **If** the OB's _reclaimPolicy_ is **not** "delete", the OB's phase is changed from "bound" to "lost" (or to "released" -- TBD).
 
 ---
 
@@ -114,31 +114,13 @@ _As a Kubernetes user, I want to delete ObjectBucketClaim instances and cleanup 
 - The bucket lib does not enforce Resource Quotas because quotas are not yet supported for CRDs.
 A [PR](https://github.com/kubernetes/kubernetes/pull/72384) exists for enabling quotas on CRDs.
 
-- Custom Bucket and Object policies are not defined for OBCs.  Currently all user keys will have Object PUT/GET/DELETE and object policy setting permissions.  It would be useful to allow users to link secondary keys with a subset of these permissions to buckets.
+- Custom bucket and Object policies are not defined for OBCs. Currently all user keys will have Object PUT/GET/DELETE and object policy setting permissions.  It would be useful to allow users to link secondary keys with a subset of these permissions to buckets.
+
+- Existing buckets (_brownfield_) may be referenced in an OBC. TBD if the burden is on the user to create their own secret for the existing bucket.
 
 ---
 
 ## API Specifications
-
-### OBC Custom Resource Definition
-
-```yaml
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: objectbucketclaims.store-operator.s3
-spec:
-  group: store-operator.s3
-  names:
-    kind: ObjectBucketClaim
-    listKind: ObjectBucketClaimList
-    plural: objectbucketclaims
-    singular: objectbucketclaim
-  scope: Namespaced
-  version: v1alpha1
-  subresources:
-    status: {}
-```
 
 ### OBC Custom Resource (User Defined)
 
@@ -158,7 +140,7 @@ spec:
 1. `storageClassName` is used to target the desired Object Store.  Used by the operator to get the Object Store service URL.
 1. `tenant` allows users to define a tenant in an object store in order to namespace their buckets and access keys. 
 
-### OBC Custom Resource (Operator Updated)
+### OBC Custom Resource (after updated by bucket-lib)
 
 ```yaml
 apiVersion: store-operator.s3/v1alpha1
@@ -183,56 +165,7 @@ status:
 1. `configMapRef` is an objectReference to the generated ConfigMap 
 1. `secretRef` is an objectReference to the generated Secret
 
-### OB Custom Resource Definition
-
-```yaml
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: objectbuckets.store-operator.s3
-spec:
-  group: store-operator.s3
-  names:
-    kind: ObjectBucket
-    listKind: ObjectBucketList
-    plural: objectbuckets
-    singular: objectbucket
-  scope: Namespaced
-  version: v1alpha1
-  subresources:
-    status: {}
-```
-
-### OB Custom Resource
-
-```yaml
-apiVersion: store-operator.s3/v1alpha1
-kind: ObjectBucket
-metadata:
-  name: object-bucket-claim-MY-BUCKET-1
-  ownerReferences: [1]
-  - name: CEPH-CLUSTER
-    ...
-  labels:
-    ceph.rook.io/object: [2]
-spec:
-  objectBucketSource: [4]
-    provider: ceph.rook.io/object
-status:
-  claimRef: objectreference [5]
-  phase: {"pending", "bound", "lost"} [6]
-```
-
-1. `ownerReferences` makes the OB a child of the object store.  If the store is destroyed, the OBs are deleted.
-1. Label `ceph.rook.io/object/claims` associates all artifacts under the Rook-Ceph object provisioner.
-1. `objectBucketSource` is a struct containing metadata of the object store provider
-1. `claimRef` is an objectReference to the ObjectBucketClaim associated with this ObjectBucket
-1. `phase` is the current state of the ObjectBucket
-    - `pending`: the operator is processing the request
-    - `bound`: the operator finished processing the request and linked the OBC and OB
-    - `lost`: the OBC has been deleted, leaving the OB unclaimed
-
-### (User Access Key) Secret
+### Secret (bucket lib generated, consumed by pod)
 
 ```yaml
 apiVersion: store-operator.s3/v1alpha1
@@ -252,7 +185,7 @@ data:
 1. `namespce` is that of a originating OBC
 1. `ownerReference` makes this secret a child of the originating OBC for clean up purposes.
 
-### ConfigMap
+### ConfigMap (bucket lib generated, consumed by pod)
 
 ```yaml
 apiVersion: v1
@@ -280,7 +213,7 @@ data:
 1. `S3_BUCKET_NAME` bucket name
 1. `S3_BUCKET_SSL` boolean representing SSL connection
 
-### StorageClass
+### StorageClass (created by admin)
 
 ```yaml
 apiVersion: storage.k8s.io/v1
