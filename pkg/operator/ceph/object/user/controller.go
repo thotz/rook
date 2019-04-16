@@ -23,15 +23,16 @@ import (
 
 	"github.com/coreos/pkg/capnslog"
 	opkit "github.com/rook/operator-kit"
+	"k8s.io/api/core/v1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
+
 	cephv1 "github.com/rook/rook/pkg/apis/ceph.rook.io/v1"
 	"github.com/rook/rook/pkg/clusterd"
 	cephconfig "github.com/rook/rook/pkg/daemon/ceph/config"
 	"github.com/rook/rook/pkg/operator/ceph/object"
 	"github.com/rook/rook/pkg/operator/k8sutil"
-	"k8s.io/api/core/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -138,7 +139,7 @@ func (c *ObjectStoreUserController) createUser(context *clusterd.Context, u *cep
 	if err := ValidateUser(context, u); err != nil {
 		return fmt.Errorf("invalid user %s arguments. %+v", u.Name, err)
 	}
-	//Set DisplayName to match Name if DisplayName is not set
+	// Set DisplayName to match Name if DisplayName is not set
 	displayName := u.Spec.DisplayName
 	if len(displayName) == 0 {
 		displayName = u.Name

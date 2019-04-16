@@ -25,6 +25,16 @@ import (
 
 	"github.com/coreos/pkg/capnslog"
 	opkit "github.com/rook/operator-kit"
+	"k8s.io/api/core/v1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
+
 	cephv1 "github.com/rook/rook/pkg/apis/ceph.rook.io/v1"
 	cephbeta "github.com/rook/rook/pkg/apis/ceph.rook.io/v1beta1"
 	"github.com/rook/rook/pkg/clusterd"
@@ -35,17 +45,10 @@ import (
 	"github.com/rook/rook/pkg/operator/ceph/file"
 	"github.com/rook/rook/pkg/operator/ceph/nfs"
 	"github.com/rook/rook/pkg/operator/ceph/object"
-	objectuser "github.com/rook/rook/pkg/operator/ceph/object/user"
+	"github.com/rook/rook/pkg/operator/ceph/object/bucket"
+	"github.com/rook/rook/pkg/operator/ceph/object/user"
 	"github.com/rook/rook/pkg/operator/ceph/pool"
 	"github.com/rook/rook/pkg/operator/k8sutil"
-	v1 "k8s.io/api/core/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -61,7 +64,7 @@ const (
 const (
 	// DefaultClusterName states the default name of the rook-cluster if not provided.
 	DefaultClusterName         = "rook-ceph"
-	clusterDeleteRetryInterval = 2 //seconds
+	clusterDeleteRetryInterval = 2 // seconds
 	clusterDeleteMaxRetries    = 15
 	disableHotplugEnv          = "ROOK_DISABLE_DEVICE_HOTPLUG"
 )
@@ -345,6 +348,20 @@ func (c *ClusterController) onAdd(obj interface{}) {
 	// Start object store user CRD watcher
 	objectStoreUserController := objectuser.NewObjectStoreUserController(c.context, cluster.Namespace, cluster.ownerRef)
 	objectStoreUserController.StartWatch(cluster.stopCh)
+
+	// Start the object bucket provisioner
+	bucketProvisioner := bucket.NewProvisioner(c.context, cluster.Namespace)
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		logger.Errorf("failed to get in-cluster config: %+v", err)
+		return
+	}
+	bucketController, err := bucket.NewBucketController(config, bucketProvisioner)
+	if err != nil {
+		logger.Errorf("Bucket provisioner failed to start. %+v", err)
+	} else {
+		go bucketController.Run(cluster.stopCh)
+	}
 
 	// Start file system CRD watcher
 	fileController := file.NewFilesystemController(cluster.Info, c.context, cluster.Namespace, c.rookImage, cluster.Spec.CephVersion, cluster.Spec.Network.HostNetwork, cluster.ownerRef, cluster.Spec.DataDirHostPath)
