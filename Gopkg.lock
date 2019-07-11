@@ -113,6 +113,20 @@
   version = "v4"
 
 [[projects]]
+  digest = "1:3ebeccd09713eef123e504ddaf58392f2aa4d50ae2939d4295ad8081befd6717"
+  name = "github.com/coreos/prometheus-operator"
+  packages = [
+    "pkg/apis/monitoring",
+    "pkg/apis/monitoring/v1",
+    "pkg/client/versioned",
+    "pkg/client/versioned/scheme",
+    "pkg/client/versioned/typed/monitoring/v1",
+  ]
+  pruneopts = "UT"
+  revision = "6efd4e5e12213021516c10b3ebd0699260ddd804"
+  version = "v0.31.1"
+
+[[projects]]
   digest = "1:86909a5b1e4522ad763f86327cfa65e51d7eb838d4adb3d6f68069fede181122"
   name = "github.com/corpix/uarand"
   packages = ["."]
@@ -531,11 +545,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:288027e71d1141c5dfa68ae0abf1ff120df4e1b427ff27dd54aa3357349fc4fb"
+  digest = "1:da278413b1e908bf462b4bc1caac1108c3f24522e27e446e2de584bc6e59cbcb"
   name = "github.com/rook/operator-kit"
   packages = ["."]
   pruneopts = "UT"
-  revision = "3a90049568e908f071d810b17fa3dfcf2b78b013"
+  revision = "e7b2e1264fff5f1dc9d506089af2399621b5a0c1"
 
 [[projects]]
   digest = "1:d707dbc1330c0ed177d4642d6ae102d5e2c847ebd0eb84562d0dc4f024531cfc"
@@ -1446,6 +1460,7 @@
     "k8s.io/apimachinery/pkg/util/json",
     "k8s.io/apimachinery/pkg/util/runtime",
     "k8s.io/apimachinery/pkg/util/strategicpatch",
+    "k8s.io/apimachinery/pkg/util/uuid",
     "k8s.io/apimachinery/pkg/util/validation",
     "k8s.io/apimachinery/pkg/util/version",
     "k8s.io/apimachinery/pkg/util/wait",
@@ -1467,6 +1482,7 @@
     "k8s.io/client-go/rest",
     "k8s.io/client-go/testing",
     "k8s.io/client-go/tools/cache",
+    "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/record",
     "k8s.io/client-go/util/flowcontrol",
     "k8s.io/client-go/util/workqueue",
