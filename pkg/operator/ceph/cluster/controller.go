@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	cephv1 "github.com/rook/rook/pkg/apis/ceph.rook.io/v1"
@@ -351,12 +350,7 @@ func (c *ClusterController) onAdd(obj interface{}) {
 
 	// Start the object bucket provisioner
 	bucketProvisioner := bucket.NewProvisioner(c.context, cluster.Namespace)
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		logger.Errorf("failed to get in-cluster config: %+v", err)
-		return
-	}
-	bucketController, err := bucket.NewBucketController(config, bucketProvisioner)
+	bucketController, err := bucket.NewBucketController(c.context.KubeConfig, bucketProvisioner)
 	if err != nil {
 		logger.Errorf("Bucket provisioner failed to start. %+v", err)
 	} else {

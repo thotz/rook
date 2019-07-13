@@ -394,7 +394,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:61ec252562f18eb14830d34016cb94eb924a2c25f9a00c8f96061d911b5aca51"
+  digest = "1:80f31c6e81838463d5d7b05710cb4722bdb939a9c5c22e35b59282ca898a2296"
   name = "github.com/kube-object-storage/lib-bucket-provisioner"
   packages = [
     "pkg/apis/objectbucket.io",
@@ -412,7 +412,7 @@
     "pkg/provisioner/api/errors",
   ]
   pruneopts = "UT"
-  revision = "8fcea68ccfbcf67b9d7578416e38c30ce80c0f39"
+  revision = "5b3f4e3b90edc8c914edb04fb5dc0dfee5f9f0d4"
 
 [[projects]]
   branch = "master"
