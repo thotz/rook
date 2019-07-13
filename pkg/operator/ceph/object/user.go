@@ -162,15 +162,18 @@ func UpdateUser(c *Context, user ObjectUser) (*ObjectUser, int, error) {
 }
 
 // DeleteUser deletes the user with the given ID.
-func DeleteUser(c *Context, id string) (string, int, error) {
+func DeleteUser(c *Context, id string, opts ...string) (string, int, error) {
 	logger.Infof("Deleting user: %s", id)
-	result, err := runAdminCommand(c, "user", "rm", "--uid", id)
+	args := []string{"user", "rm", "--uid", id}
+	if opts != nil {
+		args = append(args, opts...)
+	}
+	result, err := runAdminCommand(c, args...)
 	if err != nil {
 		return "", RGWErrorUnknown, fmt.Errorf("failed to delete user: %+v", err)
 	}
-
 	if result == "unable to remove user, user does not exist" {
-		return "", RGWErrorNotFound, fmt.Errorf("failed to delete user: %+v", err)
+		return "", RGWErrorNotFound, fmt.Errorf("user %q does not exist so cannot delete: %+v", id, err)
 	}
 
 	return result, RGWErrorNone, nil

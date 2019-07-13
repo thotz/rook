@@ -27,12 +27,12 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 
 	"github.com/rook/rook/pkg/clusterd"
-	"github.com/rook/rook/pkg/operator/ceph/object"
+	cephObject "github.com/rook/rook/pkg/operator/ceph/object"
 )
 
 type Provisioner struct {
 	context         *clusterd.Context
-	objectContext   *object.Context
+	objectContext   *cephObject.Context
 	bucketName      string
 	claimClientset  claimClient.Interface
 	storeDomainName string
@@ -90,7 +90,7 @@ func (p Provisioner) Provision(options *apibkt.BucketOptions) (*bktv1alpha1.Obje
 		return nil, err
 	}
 
-	_, errCode, err := object.SetQuotaUserBucketMax(p.objectContext, p.cephUserName, maxBuckets)
+	_, errCode, err := cephObject.SetQuotaUserBucketMax(p.objectContext, p.cephUserName, maxBuckets)
 	if errCode > 0 {
 		return nil, err
 	}
@@ -121,17 +121,17 @@ func (p Provisioner) Grant(options *apibkt.BucketOptions) (*bktv1alpha1.ObjectBu
 		return nil, err
 	}
 
-	_, _, err = object.SetQuotaUserBucketMax(p.objectContext, p.cephUserName, 0)
+	_, _, err = cephObject.SetQuotaUserBucketMax(p.objectContext, p.cephUserName, 0)
 	if err != nil {
 		return nil, err
 	}
 
 	// get the bucket's owner via the bucket metadata
-	stats, _, err := object.GetBucket(p.objectContext, p.bucketName)
+	stats, _, err := cephObject.GetBucket(p.objectContext, p.bucketName)
 	if err != nil {
 		return nil, fmt.Errorf("could not get bucket stats (bucket: %s): %v", p.bucketName, err)
 	}
-	objectUser, _, err := object.GetUser(p.objectContext, stats.Owner)
+	objectUser, _, err := cephObject.GetUser(p.objectContext, stats.Owner)
 	if err != nil {
 		return nil, fmt.Errorf("could not get user (user: %s): %v", stats.Owner, err)
 	}
@@ -183,7 +183,7 @@ func (p Provisioner) Delete(ob *bktv1alpha1.ObjectBucket) error {
 	}
 	logger.Infof("Delete: deleting bucket %q for OB %q", p.bucketName, ob.Name)
 
-	_, _, err = object.UnlinkUser(p.objectContext, p.cephUserName, p.bucketName)
+	_, _, err = cephObject.UnlinkUser(p.objectContext, p.cephUserName, p.bucketName)
 	if err != nil {
 		return err
 	}
@@ -200,6 +200,7 @@ func (p Provisioner) Delete(ob *bktv1alpha1.ObjectBucket) error {
 }
 
 // Revoke removes a user and creds from an existing bucket.
+// Note: cleanup order below matters.
 func (p Provisioner) Revoke(ob *bktv1alpha1.ObjectBucket) error {
 
 	err := p.initializeDeleteOrRevoke(ob)
@@ -208,7 +209,7 @@ func (p Provisioner) Revoke(ob *bktv1alpha1.ObjectBucket) error {
 	}
 	logger.Infof("Revoke: denying access to bucket %q for OB %q", p.bucketName, ob.Name)
 
-	bucket, _, err := object.GetBucket(p.objectContext, p.bucketName)
+	bucket, _, err := cephObject.GetBucket(p.objectContext, p.bucketName)
 	if err != nil {
 		return err
 	}
@@ -216,10 +217,10 @@ func (p Provisioner) Revoke(ob *bktv1alpha1.ObjectBucket) error {
 		return fmt.Errorf("cannot find bucket owner")
 	}
 
-	user, code, err := object.GetUser(p.objectContext, bucket.Owner)
+	user, code, err := cephObject.GetUser(p.objectContext, bucket.Owner)
 	// The user may not exist.  Ignore this in order to ensure the PolicyStatement does not contain the
 	// stale user.
-	if err != nil && code != object.RGWErrorNotFound {
+	if err != nil && code != cephObject.RGWErrorNotFound {
 		return err
 	} else if user == nil {
 		return fmt.Errorf("querying user %q returned nil", p.cephUserName)
@@ -254,7 +255,14 @@ func (p Provisioner) Revoke(ob *bktv1alpha1.ObjectBucket) error {
 		logger.Infof("principal %q ejected from bucket %q policy. Output: %v", p.cephUserName, p.bucketName, output)
 	}
 
-	_, _, err = object.DeleteUser(p.objectContext, p.cephUserName)
+	// unlink user from bucket
+	_, _, err = cephObject.UnlinkUser(p.objectContext, p.cephUserName, p.bucketName)
+	if err != nil {
+		return err
+	}
+
+	// finally, delete unlinked user
+	err = p.deleteCephUser(p.cephUserName)
 	if err != nil {
 		return err
 	}
@@ -361,7 +369,7 @@ func (p *Provisioner) setObjectContext() error {
 	} else if p.objectStoreNamespace == "" {
 		return fmt.Errorf(msg, "namespace")
 	}
-	p.objectContext = object.NewContext(p.context, p.objectStoreName, p.objectStoreNamespace)
+	p.objectContext = cephObject.NewContext(p.context, p.objectStoreName, p.objectStoreNamespace)
 	return nil
 }
 
