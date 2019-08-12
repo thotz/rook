@@ -30,12 +30,15 @@ import (
 )
 
 var (
-	userid          = "rook-user"
-	userdisplayname = "A rook RGW user"
-	bucketname      = "smokebkt"
-	objBody         = "Test Rook Object Data"
-	objectKey       = "rookObj1"
-	contentType     = "plain/text"
+	userid           = "rook-user"
+	userdisplayname  = "A rook RGW user"
+	bucketname       = "smokebkt"
+	objBody          = "Test Rook Object Data"
+	objectKey        = "rookObj1"
+	contentType      = "plain/text"
+	storageClassName = "rook-smoke-delete-bucket"
+	obcName          = "smoke-delete-bucket"
+	region           = "us-east-1"
 )
 
 // Smoke Test for ObjectStore - Test check the following operations on ObjectStore in order
@@ -54,6 +57,7 @@ func runObjectE2ETest(helper *clients.TestClient, k8sh *utils.K8sHelper, s suite
 	logger.Infof("Object store created successfully")
 
 	logger.Infof("Step 1 : Create Object Store User")
+
 	cosuErr := helper.ObjectUserClient.Create(namespace, userid, userdisplayname, storeName)
 	require.Nil(s.T(), cosuErr)
 	logger.Infof("Waiting 10 seconds to ensure user was created")
@@ -69,64 +73,10 @@ func runObjectE2ETest(helper *clients.TestClient, k8sh *utils.K8sHelper, s suite
 	assert.Nil(s.T(), gosuErr)
 	assert.Equal(s.T(), userid, userInfo.UserID)
 	assert.Equal(s.T(), userdisplayname, *userInfo.DisplayName)
-
 	logger.Infof("Done creating object store user")
 
-	/* TODO: We need bucket management tests.
-
-	logger.Infof("Step 2 : Get connection information")
-	conninfo, conninfoError := helper.ObjectClient.ObjectGetUser(storeName, userid)
-	require.Nil(s.T(), conninfoError)
-	s3endpoint, _ := k8sh.GetRGWServiceURL(storeName, namespace)
-	s3client := utils.CreateNewS3Helper(s3endpoint, *conninfo.AccessKey, *conninfo.SecretKey)
-
-	logger.Infof("Step 3 : Create bucket")
-	initialBuckets, _ := helper.ObjectClient.ObjectBucketList(storeName)
-	s3client.CreateBucket(bucketname)
-	BucketsAfterCreate, _ := helper.ObjectClient.ObjectBucketList(storeName)
-	require.Equal(s.T(), len(initialBuckets)+1, len(BucketsAfterCreate), "Make sure new bucket is created")
-	bkt, _ := getBucket(bucketname, BucketsAfterCreate)
-	require.Equal(s.T(), bucketname, bkt.Name)
-	require.Equal(s.T(), userid, bkt.Owner)
-	logger.Infof("Bucket created in Object store successfully")
-
-	logger.Infof("Step 4 : Put Object on bucket")
-	initObjSize, initObjNum, _ := getBucketSizeAndObjects(bucketname, BucketsAfterCreate)
-	require.Equal(s.T(), uint64(0), initObjSize)
-	require.Equal(s.T(), uint64(0), initObjNum)
-	_, poErr := s3client.PutObjectInBucket(bucketname, objBody, objectKey, contentType)
-	require.Nil(s.T(), poErr)
-	BucketsAfterPut, _ := helper.ObjectClient.ObjectBucketList(storeName)
-	ObjSize, ObjNum, _ := getBucketSizeAndObjects(bucketname, BucketsAfterPut)
-	require.NotEmpty(s.T(), ObjSize)
-	require.Equal(s.T(), uint64(1), ObjNum)
-	logger.Infof("Object Created on bucket successfully")
-
-	logger.Infof("Step 5 : Put Object from bucket")
-	read, err := s3client.GetObjectInBucket(bucketname, objectKey)
-	require.Nil(s.T(), err)
-	require.Equal(s.T(), objBody, read)
-	logger.Infof("Object retrieved from bucket successfully")
-
-	logger.Infof("Step 6 : Delete Object on bucket")
-	_, delobjErr := s3client.DeleteObjectInBucket(bucketname, objectKey)
-	require.Nil(s.T(), delobjErr)
-	BucketsAfterOjbDelete, _ := helper.ObjectClient.ObjectBucketList(storeName)
-	ObjSize1, ObjNum1, _ := getBucketSizeAndObjects(bucketname, BucketsAfterOjbDelete)
-	require.Equal(s.T(), uint64(0), ObjSize1)
-	require.Equal(s.T(), uint64(0), ObjNum1)
-	logger.Infof("Object deleted on bucket successfully")
-
-	logger.Infof("Step 7 : Delete bucket")
-	_, bkdelErr := s3client.DeleteBucket(bucketname)
-	require.Nil(s.T(), bkdelErr)
-	BucketsAfterDelete, _ := helper.ObjectClient.ObjectBucketList(storeName)
-	require.Equal(s.T(), len(initialBuckets), len(BucketsAfterDelete), "Make sure new bucket is deleted")
-	logger.Infof("Bucket  deleted successfully")
-
-	*/ // End of object operation tests
-
 	logger.Infof("Step 2 : Test Deleting User")
+
 	dosuErr := helper.ObjectUserClient.Delete(namespace, userid)
 	require.Nil(s.T(), dosuErr)
 	logger.Infof("Object store user deleted successfully")
@@ -141,6 +91,74 @@ func runObjectE2ETest(helper *clients.TestClient, k8sh *utils.K8sHelper, s suite
 	logger.Infof("Check that MGRs are not in a crashloop")
 	assert.True(s.T(), k8sh.CheckPodCountAndState("rook-ceph-mgr", namespace, 1, "Running"))
 	logger.Infof("Ceph MGRs are running alright")
+
+	/* Testing creation/deletion of objects using Object Bucket Claim */
+	logger.Infof("Step 3 : Create Object Bucket Claim with reclaim policy delete")
+
+	cobErr := helper.BucketClient.CreateBucketStorageClass(namespace, storeName, storageClassName, "Delete", region)
+	require.Nil(s.T(), cobErr)
+	cobcErr := helper.BucketClient.CreateObc(obcName, storageClassName, bucketname, true)
+	require.Nil(s.T(), cobcErr)
+
+	logger.Infof("Checking to see if the obc,secret,cm has been created")
+	for i = 0; i < 4 && helper.BucketClient.ObcExists(obcName) == false; i++ {
+		logger.Infof("(%d) obc check sleeping for 5 seconds ...", i)
+		time.Sleep(5 * time.Second)
+	}
+	assert.True(s.T(), helper.BucketClient.ObcExists(obcName))
+
+	logger.Infof("Check whether bucket got created or not")
+	context := k8sh.MakeContext()
+	rgwcontext := rgw.NewContext(context, storeName, namespace)
+	bkt, _, _ := rgw.GetBucket(rgwcontext, bucketname)
+	require.Equal(s.T(), bkt.Name, bucketname)
+	logger.Infof("Done creating OBC successfully")
+
+	logger.Infof("Step 4 : Create s3 client")
+
+	s3endpoint, _ := helper.ObjectClient.GetEndPointUrl(namespace, storeName)
+	s3AccessKey, _ := helper.BucketClient.GetAccessKey(obcName)
+	s3SecretKey, _ := helper.BucketClient.GetSecretKey(obcName)
+	s3client := utils.CreateNewS3Helper(s3endpoint, s3AccessKey, s3SecretKey)
+	logger.Infof("endpoint (%s) Accesskey (%s) secret (%s)", s3endpoint, s3AccessKey, s3SecretKey)
+
+	logger.Infof("Step 5 : Put Object on bucket")
+
+	_, poErr := s3client.PutObjectInBucket(bucketname, objBody, objectKey, contentType)
+	require.Nil(s.T(), poErr)
+
+	logger.Infof("Step 6 : Get Object from bucket")
+
+	read, err := s3client.GetObjectInBucket(bucketname, objectKey)
+	require.Nil(s.T(), err)
+	require.Equal(s.T(), objBody, read)
+	logger.Infof("Object Created and Retrieved on bucket successfully")
+
+	logger.Infof("Step 7 : Delete Object on bucket")
+
+	_, delobjErr := s3client.DeleteObjectInBucket(bucketname, objectKey)
+	require.Nil(s.T(), delobjErr)
+	logger.Infof("Object deleted on bucket successfully")
+
+	logger.Infof("Delete Object Bucket Claim")
+	dobcErr := helper.BucketClient.DeleteObc(obcName, storageClassName, bucketname, true)
+	require.Nil(s.T(), dobcErr)
+	logger.Infof("Checking to see if the obc,secret,cm has been deleted")
+	for i = 0; i < 4 && helper.BucketClient.ObcExists(obcName) == true; i++ {
+		logger.Infof("(%d) obc check sleeping for 5 seconds ...", i)
+		time.Sleep(5 * time.Second)
+	}
+	assert.False(s.T(), helper.BucketClient.ObcExists(obcName))
+
+	logger.Infof("ensure bucket got deleted")
+	_, _, listerr := rgw.GetBucket(rgwcontext, bucketname)
+	require.NotNil(s.T(), listerr)
+
+	dobErr := helper.BucketClient.DeleteBucketStorageClass(namespace, storeName, storageClassName, "Delete", region)
+	require.Nil(s.T(), dobErr)
+	logger.Infof("Delete Object Bucket Claim successfully")
+
+	/* TODO : Add case for brownfield/cleanup s3 client */
 
 	logger.Infof("Delete Object Store")
 	dobsErr := helper.ObjectClient.Delete(namespace, storeName)
@@ -188,7 +206,6 @@ func getBucket(bucketname string, bucketList []rgw.ObjectBucket) (rgw.ObjectBuck
 			return bucket, nil
 		}
 	}
-
 	return rgw.ObjectBucket{}, errors.New("Bucket not found")
 }
 
