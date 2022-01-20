@@ -96,11 +96,11 @@ func TestReconcileRealm(t *testing.T) {
 	objContext := NewContext(context, &client.ClusterInfo{Namespace: "mycluster"}, storeName)
 	// create the first realm, marked as default
 	store := cephv1.CephObjectStore{}
-	err := setMultisite(objContext, &store, "1.2.3.4")
+	err := setMultisite(objContext, &store)
 	assert.Nil(t, err)
 
 	// create the second realm, not marked as default
-	err = setMultisite(objContext, &store, "2.3.4.5")
+	err = setMultisite(objContext, &store)
 	assert.Nil(t, err)
 }
 

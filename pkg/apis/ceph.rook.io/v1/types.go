@@ -1417,6 +1417,10 @@ type GatewaySpec struct {
 type ZoneSpec struct {
 	// RGW Zone the Object Store is in
 	Name string `json:"name"`
+	// For the multisite configuration the endpoints need to be reachable,
+	// providing a config so that if the clusters are distant then it can accessed via this Endpoint
+	// +optional
+	Endpoint string `json:"endpoint,omitempty"`
 }
 
 // ObjectStoreStatus represents the status of a Ceph Object Store resource

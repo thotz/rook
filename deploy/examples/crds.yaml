@@ -8751,6 +8751,9 @@ spec:
                   description: The multisite info
                   nullable: true
                   properties:
+                    endpoint:
+                      description: For the multisite configuration the endpoints need to be reachable, providing a config so that if the clusters are distant then it can accessed via this Endpoint
+                      type: string
                     name:
                       description: RGW Zone the Object Store is in
                       type: string

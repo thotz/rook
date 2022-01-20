@@ -113,9 +113,13 @@ This section enables the the object store to be part of a specified ceph-object-
 
 Specifying this section also ensures that the pool section in the ceph-object-zone is used for the object-store. If pools are specified for the object-store they are neither created nor deleted.
 
+Specifying an endpoint in this section means that the endpoint specified will be added to the zones endpoint list. If an endpoint is not specified the endpoint of the object-store the endpoint will be the Kubernetes clusterIP and the port.
+
 - `name`: name of the [ceph-object-zone](/design/ceph/object/ceph-object-zone.md) the object store is in. This name must be of a ceph-object-zone resource not just of a zone that has been already created.
+- `endpoint`: externally configured endpoint of the object-store that is meant to be added to the zone's endpoints list.
 
 ```yaml
   zone:
     name: "name"
+    endpoint: http://zone.fqdn:8000
 ```
