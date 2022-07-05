@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"syscall"
 	"testing"
 	"time"
@@ -814,4 +815,32 @@ func TestGetRealmKeyArgs(t *testing.T) {
 		assert.Equal(t, "", access)
 		assert.Equal(t, "", secret)
 	})
+}
+
+func TestUpdateZoneEndpointList(t *testing.T) {
+	type args struct {
+		zoneEndpointList []string
+		oldEndpoint      string
+		newEndpoint      string
+	}
+
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		{"adding new endpoint to emptylist", args{zoneEndpointList: []string{}, oldEndpoint: "", newEndpoint: "http://new-endpoint"}, []string{"http://new-endpoint"}},
+		{"adding new endpoint to exising list", args{zoneEndpointList: []string{"http://rgw-endpoint-1"}, oldEndpoint: "", newEndpoint: "http://new-endpoint"}, []string{"http://rgw-endpoint-1", "http://new-endpoint"}},
+		{"updating same endpoint to list", args{zoneEndpointList: []string{"http://rgw-endpoint-1"}, oldEndpoint: "http://rgw-endpoint-1", newEndpoint: "http://rgw-endpoint-1"}, []string{"http://rgw-endpoint-1"}},
+		{"updating different endpoint to single endpoint list", args{zoneEndpointList: []string{"http://rgw-endpoint-1"}, oldEndpoint: "http://rgw-endpoint-1", newEndpoint: "http://rgw-endpoint-2"}, []string{"http://rgw-endpoint-2"}},
+		{"updating different endpoint to muliple endpoint list", args{zoneEndpointList: []string{"http://rgw-endpoint-1", "http://rgw-endpoint-2"}, oldEndpoint: "http://rgw-endpoint-2", newEndpoint: "http://rgw-endpoint-3"}, []string{"http://rgw-endpoint-1", "http://rgw-endpoint-3"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := updateZoneEndpointList(tt.args.zoneEndpointList, tt.args.oldEndpoint, tt.args.newEndpoint); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("updateZoneEndpointList() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

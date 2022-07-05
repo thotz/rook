@@ -542,15 +542,10 @@ func setMultisite(objContext *Context, store *cephv1.CephObjectStore) error {
 		// Remove old endpoint of RGW server from zone if it is different
 		if store.Status != nil && store.Status.Info != nil {
 			statusInfoEndpoint, isEndpointPresent := store.Status.Info["endpoint"]
-			if isEndpointPresent && statusInfoEndpoint != serviceEndpoint {
-				for i, endpoint := range zoneEndpointsList {
-					if store.Status.Info["endpoint"] == endpoint {
-						zoneEndpointsList = append(zoneEndpointsList[:i], zoneEndpointsList[i+1:]...)
-					}
-				}
+			if isEndpointPresent {
+				zoneEndpointsList = updateZoneEndpointList(zoneEndpointsList, statusInfoEndpoint, serviceEndpoint)
 			}
 		}
-		zoneEndpointsList = append(zoneEndpointsList, serviceEndpoint)
 
 		zoneEndpoints := strings.Join(zoneEndpointsList, ",")
 		logger.Debugf("Endpoints for zone %q are: %q", objContext.Zone, zoneEndpoints)
@@ -1022,4 +1017,18 @@ func errorOrIsNotFound(err error, msg string, args ...string) error {
 		return err
 	}
 	return errors.Wrapf(err, msg, args)
+}
+
+// Update the Endpoints in Zone with new details
+func updateZoneEndpointList(zoneEndpointsList []string, oldEndpoint, newEndpoint string) []string {
+	if oldEndpoint != newEndpoint {
+		for i, endpoint := range zoneEndpointsList {
+			if oldEndpoint == endpoint {
+				zoneEndpointsList = append(zoneEndpointsList[:i], zoneEndpointsList[i+1:]...)
+				break
+			}
+		}
+		zoneEndpointsList = append(zoneEndpointsList, newEndpoint)
+	}
+	return zoneEndpointsList
 }

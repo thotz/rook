@@ -722,97 +722,99 @@ func TestCephObjectStoreControllerMultisite(t *testing.T) {
 	currentAndDesiredCephVersion = func(ctx context.Context, rookImage string, namespace string, jobName string, ownerInfo *k8sutil.OwnerInfo, context *clusterd.Context, cephClusterSpec *cephv1.ClusterSpec, clusterInfo *client.ClusterInfo) (*cephver.CephVersion, *cephver.CephVersion, error) {
 		return &cephver.Pacific, &cephver.Pacific, nil
 	}
+	t.Run("normal object store", func(t *testing.T) {
+		r, objectStore, req := setupEnviroment(store)
+		t.Run("create an object store", func(t *testing.T) {
+			res, err := r.Reconcile(ctx, req)
+			assert.NoError(t, err)
+			assert.False(t, res.Requeue)
+			assert.True(t, calledCommitConfigChanges)
+			err = r.client.Get(ctx, req.NamespacedName, objectStore)
+			assert.NoError(t, err)
+			assert.Equal(t, objectStore.Status.Info["endpoint"], BuildDNSEndpoint(BuildDomainName(objectStore.Name, objectStore.Namespace), objectStore.Spec.Gateway.Port, false))
+		})
 
-	r, objectStore, req := setupEnviroment(store)
-	t.Run("create an object store", func(t *testing.T) {
-		res, err := r.Reconcile(ctx, req)
-		assert.NoError(t, err)
-		assert.False(t, res.Requeue)
-		assert.True(t, calledCommitConfigChanges)
-		err = r.client.Get(ctx, req.NamespacedName, objectStore)
-		assert.NoError(t, err)
-		assert.Equal(t, objectStore.Status.Info["endpoint"], BuildDNSEndpoint(BuildDomainName(objectStore.Name, objectStore.Namespace), objectStore.Spec.Gateway.Port, false))
+		t.Run("delete the same store", func(t *testing.T) {
+			calledCommitConfigChanges = false
+
+			// no dependents
+			dependentsChecked := false
+			cephObjectStoreDependentsOrig := cephObjectStoreDependents
+			defer func() { cephObjectStoreDependents = cephObjectStoreDependentsOrig }()
+			cephObjectStoreDependents = func(clusterdCtx *clusterd.Context, clusterInfo *client.ClusterInfo, store *cephv1.CephObjectStore, objCtx *Context, opsCtx *AdminOpsContext) (*dependents.DependentList, error) {
+				dependentsChecked = true
+				return &dependents.DependentList{}, nil
+			}
+
+			err := r.client.Get(ctx, req.NamespacedName, objectStore)
+			assert.NoError(t, err)
+			objectStore.DeletionTimestamp = &metav1.Time{
+				Time: time.Now(),
+			}
+			err = r.client.Update(ctx, objectStore)
+			assert.NoError(t, err)
+
+			// have to also track the same objects in the rook clientset
+			r.context.RookClientset = rookfake.NewSimpleClientset(
+				objectRealm,
+				objectZoneGroup,
+				objectZone,
+				objectStore,
+			)
+
+			res, err := r.Reconcile(ctx, req)
+			assert.NoError(t, err)
+			assert.False(t, res.Requeue)
+			assert.True(t, dependentsChecked)
+			assert.True(t, calledCommitConfigChanges)
+		})
 	})
+	t.Run("object store with custom Endpoint", func(t *testing.T) {
+		r, objectStore, req := setupEnviroment(customEndpointStore)
+		t.Run("create the object store", func(t *testing.T) {
+			res, err := r.Reconcile(ctx, req)
+			assert.NoError(t, err)
+			assert.False(t, res.Requeue)
+			assert.True(t, calledCommitConfigChanges)
+			err = r.client.Get(ctx, req.NamespacedName, objectStore)
+			assert.NoError(t, err)
+			assert.Equal(t, objectStore.Status.Info["endpoint"], customEndpoint)
+		})
 
-	t.Run("delete the same store", func(t *testing.T) {
-		calledCommitConfigChanges = false
+		t.Run("delete the same store", func(t *testing.T) {
+			calledCommitConfigChanges = false
 
-		// no dependents
-		dependentsChecked := false
-		cephObjectStoreDependentsOrig := cephObjectStoreDependents
-		defer func() { cephObjectStoreDependents = cephObjectStoreDependentsOrig }()
-		cephObjectStoreDependents = func(clusterdCtx *clusterd.Context, clusterInfo *client.ClusterInfo, store *cephv1.CephObjectStore, objCtx *Context, opsCtx *AdminOpsContext) (*dependents.DependentList, error) {
-			dependentsChecked = true
-			return &dependents.DependentList{}, nil
-		}
+			// no dependents
+			dependentsChecked := false
+			cephObjectStoreDependentsOrig := cephObjectStoreDependents
+			defer func() { cephObjectStoreDependents = cephObjectStoreDependentsOrig }()
+			cephObjectStoreDependents = func(clusterdCtx *clusterd.Context, clusterInfo *client.ClusterInfo, store *cephv1.CephObjectStore, objCtx *Context, opsCtx *AdminOpsContext) (*dependents.DependentList, error) {
+				dependentsChecked = true
+				return &dependents.DependentList{}, nil
+			}
 
-		err := r.client.Get(ctx, req.NamespacedName, objectStore)
-		assert.NoError(t, err)
-		objectStore.DeletionTimestamp = &metav1.Time{
-			Time: time.Now(),
-		}
-		err = r.client.Update(ctx, objectStore)
-		assert.NoError(t, err)
+			err := r.client.Get(ctx, req.NamespacedName, objectStore)
+			assert.NoError(t, err)
+			objectStore.DeletionTimestamp = &metav1.Time{
+				Time: time.Now(),
+			}
+			err = r.client.Update(ctx, objectStore)
+			assert.NoError(t, err)
 
-		// have to also track the same objects in the rook clientset
-		r.context.RookClientset = rookfake.NewSimpleClientset(
-			objectRealm,
-			objectZoneGroup,
-			objectZone,
-			objectStore,
-		)
+			// have to also track the same objects in the rook clientset
+			r.context.RookClientset = rookfake.NewSimpleClientset(
+				objectRealm,
+				objectZoneGroup,
+				objectZone,
+				objectStore,
+			)
 
-		res, err := r.Reconcile(ctx, req)
-		assert.NoError(t, err)
-		assert.False(t, res.Requeue)
-		assert.True(t, dependentsChecked)
-		assert.True(t, calledCommitConfigChanges)
-	})
-
-	r, objectStore, req = setupEnviroment(customEndpointStore)
-	t.Run("create the object store with custom Endpoint", func(t *testing.T) {
-		res, err := r.Reconcile(ctx, req)
-		assert.NoError(t, err)
-		assert.False(t, res.Requeue)
-		assert.True(t, calledCommitConfigChanges)
-		err = r.client.Get(ctx, req.NamespacedName, objectStore)
-		assert.NoError(t, err)
-		assert.Equal(t, objectStore.Status.Info["endpoint"], customEndpoint)
-	})
-
-	t.Run("delete the custom zone endpoint store", func(t *testing.T) {
-		calledCommitConfigChanges = false
-
-		// no dependents
-		dependentsChecked := false
-		cephObjectStoreDependentsOrig := cephObjectStoreDependents
-		defer func() { cephObjectStoreDependents = cephObjectStoreDependentsOrig }()
-		cephObjectStoreDependents = func(clusterdCtx *clusterd.Context, clusterInfo *client.ClusterInfo, store *cephv1.CephObjectStore, objCtx *Context, opsCtx *AdminOpsContext) (*dependents.DependentList, error) {
-			dependentsChecked = true
-			return &dependents.DependentList{}, nil
-		}
-
-		err := r.client.Get(ctx, req.NamespacedName, objectStore)
-		assert.NoError(t, err)
-		objectStore.DeletionTimestamp = &metav1.Time{
-			Time: time.Now(),
-		}
-		err = r.client.Update(ctx, objectStore)
-		assert.NoError(t, err)
-
-		// have to also track the same objects in the rook clientset
-		r.context.RookClientset = rookfake.NewSimpleClientset(
-			objectRealm,
-			objectZoneGroup,
-			objectZone,
-			objectStore,
-		)
-
-		res, err := r.Reconcile(ctx, req)
-		assert.NoError(t, err)
-		assert.False(t, res.Requeue)
-		assert.True(t, dependentsChecked)
-		assert.True(t, calledCommitConfigChanges)
+			res, err := r.Reconcile(ctx, req)
+			assert.NoError(t, err)
+			assert.False(t, res.Requeue)
+			assert.True(t, dependentsChecked)
+			assert.True(t, calledCommitConfigChanges)
+		})
 	})
 }
 

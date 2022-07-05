@@ -139,16 +139,7 @@ All the other settings from the gateway section will be ignored, except for `sec
 The [zone](../../Storage-Configuration/Object-Storage-RGW/ceph-object-multisite.md) settings allow the object store to join custom created [ceph-object-zone](ceph-object-multisite-crd.md).
 
 * `name`: the name of the ceph-object-zone the object store will be in.
-* `endpoint`: the zone endpoint associated with the object-store. See description below.
-
-### Zone Endpoint Description
-A Zone has a list of endpoints (zone endpoints) of each CephObjectStore in the zone. Each of these endpoints support replication traffic for the zone.
-
-A zone endpoint must be a reachable endpoint of the CephObjectStore from the other Ceph cluster the admin is establishing a multisite relationship from.
-If the admin doesn't set an `endpoint`, the ClusterIP Service created for the object-store by Rook is used as the zone endpoint for the CephObjectStore.
-
-Since a CephObjectStore can be reachable via a variety of means, the zone endpoint for a CephObjectStore is one way to reach a CephObjectStore but with the purpose of supporting replication traffic.
-For example, if an admin creates a LoadBalancer Service for ingress to the CephObjectStore's RGWs for multisite, the `endpoint` should be set to the IP or DNS name of the LoadBalancer.
+* `endpoint`: if this zone cannot be accessed from other peer Ceph clusters via the ClusterIP Service endpoint created by Rook, you must set this to the externally reachable endpoint. You must also include the port in the definition. For example: "https://my-object-store.my-domain.net:443".In many cases, you should set this to the endpoint of the ingress resource that makes the CephObjectStore associated with this CephObjectStoreZone reachable to peer clusters.
 
 ## Runtime settings
 
