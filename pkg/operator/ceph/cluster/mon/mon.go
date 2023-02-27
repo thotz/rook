@@ -87,6 +87,8 @@ const (
 	canaryRetryDelaySeconds = 5
 
 	DisasterProtectionFinalizerName = cephv1.CustomResourceGroup + "/disaster-protection"
+
+	monCanaryLabelSelector = "app=rook-ceph-mon,mon_canary=true"
 )
 
 var (
@@ -206,7 +208,7 @@ func (c *Cluster) Start(clusterInfo *cephclient.ClusterInfo, rookVersion string,
 		return nil, errors.Wrap(err, "failed to check for mons to skip reconcile")
 	}
 	if monsToSkipReconcile.Len() > 0 {
-		logger.Warningf("skipping mon reconcile since mons are labeled with %s: %v", cephv1.SkipReconcileLabelKey, monsToSkipReconcile.List())
+		logger.Warningf("skipping mon reconcile since mons are labeled with %s: %v", cephv1.SkipReconcileLabelKey, sets.List(monsToSkipReconcile))
 		return c.ClusterInfo, nil
 	}
 
@@ -796,11 +798,23 @@ func (c *Cluster) initMonIPs(mons []*monConfig) error {
 			}
 			m.PublicIP = node.Address
 		} else {
-			serviceIP, err := c.createService(m)
+			monService, err := c.createService(m)
 			if err != nil {
 				return errors.Wrap(err, "failed to create mon service")
 			}
-			m.PublicIP = serviceIP
+			// update PublicIP with clusterIP or exportedIP only when creating mons for the first time
+			if m.PublicIP == "" {
+				if c.spec.Network.MultiClusterService.Enabled {
+					exportedIP, err := c.exportService(monService, m.DaemonName)
+					if err != nil {
+						return errors.Wrapf(err, "failed to export service %q", monService.Name)
+					}
+					logger.Infof("mon %q exported IP is %s", m.DaemonName, exportedIP)
+					m.PublicIP = exportedIP
+				} else {
+					m.PublicIP = monService.Spec.ClusterIP
+				}
+			}
 		}
 		c.ClusterInfo.Monitors[m.DaemonName] = cephclient.NewMonInfo(m.DaemonName, m.PublicIP, m.Port)
 	}
@@ -810,8 +824,8 @@ func (c *Cluster) initMonIPs(mons []*monConfig) error {
 
 // Delete mon canary deployments (and associated PVCs) using deployment labels
 // to select this kind of temporary deployments
-func (c *Cluster) removeCanaryDeployments() {
-	canaryDeployments, err := k8sutil.GetDeployments(c.ClusterInfo.Context, c.context.Clientset, c.Namespace, "app=rook-ceph-mon,mon_canary=true")
+func (c *Cluster) removeCanaryDeployments(labelSelector string) {
+	canaryDeployments, err := k8sutil.GetDeployments(c.ClusterInfo.Context, c.context.Clientset, c.Namespace, labelSelector)
 	if err != nil {
 		logger.Warningf("failed to get the list of monitor canary deployments. %v", err)
 		return
@@ -835,8 +849,13 @@ func (c *Cluster) assignMons(mons []*monConfig) error {
 	// anti-affinity rules to be effective, we leave the canary pods in place
 	// until all of the canaries have been scheduled. Only after the
 	// monitor/node assignment process is complete are the canary deployments
-	// and pvcs removed here.
-	defer c.removeCanaryDeployments()
+	// and pvcs removed here. In case multiClusterService is enabled, skip deletion
+	// of the canary mons until the service is exported because nslookup of the
+	// exported service fqdn will require the mon pod to be running.
+
+	if !c.spec.Network.MultiClusterService.Enabled {
+		defer c.removeCanaryDeployments(monCanaryLabelSelector)
+	}
 
 	var monSchedulingWait sync.WaitGroup
 	var resultLock sync.Mutex
@@ -1485,7 +1504,7 @@ func (c *Cluster) releaseOrchestrationLock() {
 	logger.Debugf("Released lock for mon orchestration")
 }
 
-func (c *Cluster) getMonsToSkipReconcile() (sets.String, error) {
+func (c *Cluster) getMonsToSkipReconcile() (sets.Set[string], error) {
 	listOpts := metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s,%s", k8sutil.AppAttr, AppName, cephv1.SkipReconcileLabelKey)}
 
 	deployments, err := c.context.Clientset.AppsV1().Deployments(c.ClusterInfo.Namespace).List(c.ClusterInfo.Context, listOpts)
@@ -1493,7 +1512,7 @@ func (c *Cluster) getMonsToSkipReconcile() (sets.String, error) {
 		return nil, errors.Wrap(err, "failed to query mons to skip reconcile")
 	}
 
-	result := sets.NewString()
+	result := sets.New[string]()
 	for _, deployment := range deployments.Items {
 		if monID, ok := deployment.Labels[config.MonType]; ok {
 			logger.Infof("found mon %q pod to skip reconcile", monID)

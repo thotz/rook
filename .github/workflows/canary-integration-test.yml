@@ -948,6 +948,9 @@ jobs:
           timeout 120 bash -c 'while kubectl -n rook-ceph get cephobjectstore my-store; do echo "waiting for objectstore my-store to delete"; sleep 5; done'
           kubectl create -f tests/manifests/test-object.yaml
           tests/scripts/validate_cluster.sh rgw
+          # the test is already waiting for the rgw daemon to start, but this is just a hack until we find
+          # what else we need to wait for
+          sleep 30
           tests/scripts/deploy-validate-vault.sh validate_rgw
 
       - name: collect common logs
@@ -1447,7 +1450,7 @@ jobs:
         uses: manusa/actions-setup-minikube@v2.7.2
         with:
           minikube version: "v1.26.1"
-          kubernetes version: "v1.23.0"
+          kubernetes version: "v1.26.1"
           start args: --memory 6g --cpus=2 --addons ingress --cni=calico
           github token: ${{ secrets.GITHUB_TOKEN }}
 
