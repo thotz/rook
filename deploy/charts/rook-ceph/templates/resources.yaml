@@ -865,6 +865,10 @@ spec:
         - jsonPath: .spec.external.enable
           name: External
           type: boolean
+        - description: Ceph FSID
+          jsonPath: .status.ceph.fsid
+          name: FSID
+          type: string
       name: v1
       schema:
         openAPIV3Schema:
@@ -2548,6 +2552,19 @@ spec:
                   description: Security represents security settings
                   nullable: true
                   properties:
+                    keyRotation:
+                      description: KeyRotation defines options for Key Rotation.
+                      nullable: true
+                      properties:
+                        enabled:
+                          default: false
+                          description: Enabled represents whether the key rotation is enabled.
+                          type: boolean
+                        schedule:
+                          default: '@weekly'
+                          description: Schedule represents the cron schedule for key rotation.
+                          type: string
+                      type: object
                     kms:
                       description: KeyManagementService is the main Key Management option
                       nullable: true
@@ -12986,6 +13003,19 @@ spec:
                   description: Security represents security settings
                   nullable: true
                   properties:
+                    keyRotation:
+                      description: KeyRotation defines options for Key Rotation.
+                      nullable: true
+                      properties:
+                        enabled:
+                          default: false
+                          description: Enabled represents whether the key rotation is enabled.
+                          type: boolean
+                        schedule:
+                          default: '@weekly'
+                          description: Schedule represents the cron schedule for key rotation.
+                          type: string
+                      type: object
                     kms:
                       description: KeyManagementService is the main Key Management option
                       nullable: true
