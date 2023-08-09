@@ -257,8 +257,6 @@ func (r *ReconcileNode) createOrUpdateNodeDaemons(node corev1.Node, tolerations 
 				return errors.Wrapf(err, "ceph exporter reconcile failed on op %q", op)
 			}
 		} else {
-			// CephVersion change is done temporarily, as some regression was detected in Ceph version 17.2.6 which is summarised here https://github.com/ceph/ceph/pull/50718#issuecomment-1505608312.
-			// Thus, disabling ceph-exporter for now until all the regression are fixed.
 			if cephVersion.IsAtLeast(MinVersionForCephExporter) {
 				logger.Debugf("ceph exporter successfully reconciled for node %q. operation: %q", node.Name, op)
 				// create the metrics service
