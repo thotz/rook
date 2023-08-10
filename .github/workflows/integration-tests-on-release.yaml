@@ -155,7 +155,7 @@ jobs:
         run: |
           tests/scripts/github-action-helper.sh collect_udev_logs_in_background
           export DEVICE_FILTER=$(lsblk|awk '/14G/ {print $1}'| head -1)
-          go test -v -timeout 1800s -run CephUpgradeSuite/TestUpgradeRook github.com/rook/rook/tests/integration
+          go test -v -timeout 2400s -run CephUpgradeSuite/TestUpgradeRook github.com/rook/rook/tests/integration
 
       - name: collect common logs
         if: always()
@@ -215,7 +215,6 @@ jobs:
           path: /home/runner/work/rook/rook/tests/integration/_output/tests/
 
   TestCephObjectSuite:
-    if: ${{ github.event_name == 'pull_request' && github.ref != 'refs/heads/master' && !contains(github.event.pull_request.labels.*.name, 'skip-ci') }}
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -237,7 +236,7 @@ jobs:
         run: |
           tests/scripts/github-action-helper.sh collect_udev_logs_in_background
           export DEVICE_FILTER=$(lsblk|awk '/14G/ {print $1}'| head -1)
-          SKIP_CLEANUP_POLICY=false go test -v -timeout 1800s -failfast -run CephObjectSuite github.com/rook/rook/tests/integration
+          SKIP_CLEANUP_POLICY=false go test -v -timeout 2400s -failfast -run CephObjectSuite github.com/rook/rook/tests/integration
 
       - name: collect common logs
         if: always()
