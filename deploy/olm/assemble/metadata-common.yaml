@@ -233,7 +233,7 @@ metadata:
   annotations:
     tectonic-visibility: ocs
     repository: https://github.com/red-hat-storage/rook
-    containerImage: "{{.RookOperatorImage}}"
+    containerImage: rook/ceph:master
     alm-examples: |-
       [
         {

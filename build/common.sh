@@ -24,6 +24,15 @@ scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export OUTPUT_DIR=${BUILD_ROOT}/_output
 export WORK_DIR=${BUILD_ROOT}/.work
 export CACHE_DIR=${BUILD_ROOT}/.cache
+export GOOS
+GOOS=$(go env GOOS)
+export GOARCH
+GOARCH=$(go env GOARCH)
+DEFAULT_CSV_VERSION="4.15.0"
+CSV_VERSION="${CSV_VERSION:-${DEFAULT_CSV_VERSION}}"
+export ROOK_IMAGE="docker.io/rook/ceph:v1.13.0.399.g9c0d795e2"
+DEFAULT_BUNDLE_IMAGE=rook/rook-ceph-operator-bundle:"${VERSION}"
+BUNDLE_IMAGE="${BUNDLE_IMAGE:-${DEFAULT_BUNDLE_IMAGE}}"
 
 function ver() {
     local full_ver maj min bug build

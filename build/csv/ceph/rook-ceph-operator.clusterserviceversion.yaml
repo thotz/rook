@@ -201,7 +201,7 @@ metadata:
     operators.operatorframework.io/project_layout: unknown
     tectonic-visibility: ocs
     repository: https://github.com/red-hat-storage/rook
-    containerImage: '{{.RookOperatorImage}}'
+    containerImage: docker.io/rook/ceph:v1.13.0.399.g9c0d795e2
     externalClusterScript: |-
       IiIiCkNvcHlyaWdodCAyMDIwIFRoZSBSb29rIEF1dGhvcnMuIEFsbCByaWdodHMgcmVzZXJ2ZWQu
       CgpMaWNlbnNlZCB1bmRlciB0aGUgQXBhY2hlIExpY2Vuc2UsIFZlcnNpb24gMi4wICh0aGUgIkxp
@@ -1860,7 +1860,7 @@ metadata:
       OgogICAgICAgIHByaW50KGYiS2V5RXJyb3I6IHtrRXJyfSIpCiAgICBleGNlcHQgT1NFcnJvciBh
       cyBvc0VycjoKICAgICAgICBwcmludChmIkVycm9yIHdoaWxlIHRyeWluZyB0byBvdXRwdXQgdGhl
       IGRhdGE6IHtvc0Vycn0iKQogICAgZmluYWxseToKICAgICAgICByak9iai5zaHV0ZG93bigpCg==
-  name: rook-ceph.v{{.RookOperatorCsvVersion}}
+  name: rook-ceph-operator.v4.15.0
   namespace: placeholder
   relatedImages:
     - image: docker.io/rook/ceph:master
@@ -3034,7 +3034,7 @@ spec:
                             fieldPath: metadata.namespace
                       - name: ROOK_OBC_WATCH_OPERATOR_NAMESPACE
                         value: "true"
-                    image: {{.RookOperatorImage}}
+                    image: docker.io/rook/ceph:v1.13.0.399.g9c0d795e2
                     name: rook-ceph-operator
                     resources: {}
                     securityContext:
@@ -3374,5 +3374,5 @@ spec:
   provider:
     name: Provider Name
     url: https://your.domain
-  version: {{.RookOperatorCsvVersion}}
+  version: 4.15.0
   minKubeVersion: 1.16.0
