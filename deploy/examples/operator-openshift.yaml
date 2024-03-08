@@ -658,10 +658,10 @@ spec:
         app: rook-ceph-operator
     spec:
       tolerations:
-        - effect: NoExecute
-          key: node.kubernetes.io/unreachable
-          operator: Exists
-          tolerationSeconds: 5
+        - key: node.ocs.openshift.io/storage
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
       serviceAccountName: rook-ceph-system
       containers:
         - name: rook-ceph-operator

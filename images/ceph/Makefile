@@ -80,15 +80,6 @@ do.build:
 	@cp $(MANIFESTS_DIR)/create-external-cluster-resources.* $(BUILD_CONTEXT_DIR)/rook-external/
 	@cp ../../tests/ceph-status-out $(BUILD_CONTEXT_DIR)/rook-external/test-data/
 
-ifeq ($(INCLUDE_CSV_TEMPLATES),true)
-	@$(MAKE) csv
-	@cp -r ../../build/csv $(BUILD_CONTEXT_DIR)/ceph-csv-templates
-	@rm $(BUILD_CONTEXT_DIR)/ceph-csv-templates/csv-gen.sh
-	@$(MAKE) csv-clean
-
-else
-	mkdir $(BUILD_CONTEXT_DIR)/ceph-csv-templates
-endif
 	@cd $(BUILD_CONTEXT_DIR) && $(SED_IN_PLACE) 's|BASEIMAGE|$(BASEIMAGE)|g' Dockerfile
 	@if [ -z "$(BUILD_CONTAINER_IMAGE)" ]; then\
 		$(DOCKERCMD) build $(BUILD_ARGS) \
@@ -125,11 +116,11 @@ csv: $(OPERATOR_SDK) $(YQv3)
 	@../../build/csv/csv-gen.sh
 	@# #adding 2>/dev/null since CI doesn't seems to be creating bundle.Dockerfile file
 	@rm bundle.Dockerfile 2> /dev/null || true
+	@git restore $(MANIFESTS_DIR)/crds.yaml ../../deploy/charts/rook-ceph/templates/resources.yaml
 
 csv-clean: ## Remove existing OLM files.
 	@rm -fr ../../build/csv/ceph/${go env GOARCH}
 	@rm -f ../../build/csv/rook-ceph.clusterserviceversion.yaml
-	@git restore $(MANIFESTS_DIR)/crds.yaml ../../deploy/charts/rook-ceph/templates/resources.yaml
 
 # reading from a file and outputting to the same file can have undefined results, so use this intermediate
 IMAGE_TMP="/tmp/rook-ceph-image-list"
