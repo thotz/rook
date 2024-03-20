@@ -184,6 +184,10 @@ gen-csv: export NO_OB_OBC_VOL_GEN=true
 gen-csv: csv-clean crds ## Generate a CSV file for OLM.
 	$(MAKE) -C images/ceph csv
 
+bundle:
+	@echo generate rook bundle
+	@build/bundle/gen-bundle.sh
+
 csv-clean: ## Remove existing OLM files.
 	@$(MAKE) -C images/ceph csv-clean
 

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
+source "../../build/common.sh"
+
 #############
 # VARIABLES #
 #############
@@ -13,7 +15,7 @@ YQ_CMD_DELETE=("$yq" delete -i)
 YQ_CMD_MERGE_OVERWRITE=("$yq" merge --inplace --overwrite --prettyPrint)
 YQ_CMD_MERGE=("$yq" merge --arrays=append --inplace)
 YQ_CMD_WRITE=("$yq" write --inplace -P)
-CSV_FILE_NAME="../../build/csv/ceph/$PLATFORM/manifests/rook-ceph.clusterserviceversion.yaml"
+CSV_FILE_NAME="../../build/csv/ceph/$PLATFORM/manifests/rook-ceph-operator.clusterserviceversion.yaml"
 CEPH_EXTERNAL_SCRIPT_FILE="../../deploy/examples/create-external-cluster-resources.py"
 ASSEMBLE_FILE_COMMON="../../deploy/olm/assemble/metadata-common.yaml"
 ASSEMBLE_FILE_OCP="../../deploy/olm/assemble/metadata-ocp.yaml"
@@ -23,7 +25,7 @@ ASSEMBLE_FILE_OCP="../../deploy/olm/assemble/metadata-ocp.yaml"
 #############
 
 function generate_csv() {
-    kubectl kustomize ../../deploy/examples/ | "$operator_sdk" generate bundle --package="rook-ceph" --output-dir="../../build/csv/ceph/$PLATFORM" --extra-service-accounts=rook-ceph-default,rook-csi-rbd-provisioner-sa,rook-csi-rbd-plugin-sa,rook-csi-cephfs-provisioner-sa,rook-csi-nfs-provisioner-sa,rook-csi-nfs-plugin-sa,rook-csi-cephfs-plugin-sa,rook-ceph-system,rook-ceph-rgw,rook-ceph-purge-osd,rook-ceph-osd,rook-ceph-mgr,rook-ceph-cmd-reporter
+    kubectl kustomize ../../deploy/examples/ | "$operator_sdk" generate bundle --package="rook-ceph-operator" --output-dir="../../build/csv/ceph/$PLATFORM" --extra-service-accounts=rook-ceph-default,rook-csi-rbd-provisioner-sa,rook-csi-rbd-plugin-sa,rook-csi-cephfs-provisioner-sa,rook-csi-nfs-provisioner-sa,rook-csi-nfs-plugin-sa,rook-csi-cephfs-plugin-sa,rook-ceph-system,rook-ceph-rgw,rook-ceph-purge-osd,rook-ceph-osd,rook-ceph-mgr,rook-ceph-cmd-reporter
 
     # cleanup to get the expected state before merging the real data from assembles
     "${YQ_CMD_DELETE[@]}" "$CSV_FILE_NAME" 'spec.icon[*]'
@@ -33,7 +35,7 @@ function generate_csv() {
 
     "${YQ_CMD_MERGE_OVERWRITE[@]}" "$CSV_FILE_NAME" "$ASSEMBLE_FILE_COMMON"
     "${YQ_CMD_WRITE[@]}" "$CSV_FILE_NAME" metadata.annotations.externalClusterScript "$(base64 <$CEPH_EXTERNAL_SCRIPT_FILE)"
-    "${YQ_CMD_WRITE[@]}" "$CSV_FILE_NAME" metadata.name "rook-ceph.v${VERSION}"
+    "${YQ_CMD_WRITE[@]}" "$CSV_FILE_NAME" metadata.name "rook-ceph-operator.v${CSV_VERSION}"
 
     "${YQ_CMD_MERGE[@]}" "$CSV_FILE_NAME" "$ASSEMBLE_FILE_OCP"
 
@@ -47,11 +49,11 @@ function generate_csv() {
         return
     fi
 
-    sed -i 's/image: rook\/ceph:.*/image: {{.RookOperatorImage}}/g' "$CSV_FILE_NAME"
-    sed -i 's/name: rook-ceph.v.*/name: rook-ceph.v{{.RookOperatorCsvVersion}}/g' "$CSV_FILE_NAME"
-    sed -i 's/version: 0.0.0/version: {{.RookOperatorCsvVersion}}/g' "$CSV_FILE_NAME"
+    sed -i "s|containerImage: rook/ceph:.*|containerImage: $ROOK_IMAGE|" "$CSV_FILE_NAME"
+    sed -i "s|image: rook/ceph:.*|image: $ROOK_IMAGE|" "$CSV_FILE_NAME"
+    sed -i "s/name: rook-ceph.v.*/name: rook-ceph-operator.v$CSV_VERSION/g" "$CSV_FILE_NAME"
+    sed -i "s/version: 0.0.0/version: $CSV_VERSION/g" "$CSV_FILE_NAME"
 
-    mv "$CSV_FILE_NAME" "../../build/csv/"
     mv "../../build/csv/ceph/$PLATFORM/manifests/"* "../../build/csv/ceph/"
     rm -rf "../../build/csv/ceph/$PLATFORM"
 }
