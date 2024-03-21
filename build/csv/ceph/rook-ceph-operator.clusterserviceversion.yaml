@@ -2969,7 +2969,7 @@ spec:
                       - name: ROOK_DISABLE_ADMISSION_CONTROLLER
                         value: "true"
                       - name: ROOK_CSIADDONS_IMAGE
-                        value: quay.io/csiaddons/k8s-sidecar:v0.6.0
+                        value: quay.io/csiaddons/k8s-sidecar:v0.8.0
                       - name: ROOK_OBC_PROVISIONER_NAME_PREFIX
                         value: openshift-storage
                       - name: CSI_ENABLE_METADATA
