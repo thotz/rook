@@ -228,6 +228,23 @@ spec:
       supported: false
     - type: AllNamespaces
       supported: false
+  relatedImages:
+    - image: rook/ceph:master
+      name: rook-container
+    - image: quay.io/csiaddons/k8s-sidecar:v0.8.0
+      name: csiaddons-sidecar
+    - image: quay.io/cephcsi/cephcsi:v3.10.2
+      name: ceph-csi
+    - image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.10.0
+      name: csi-node-driver-registrar
+    - image: registry.k8s.io/sig-storage/csi-resizer:v1.10.0
+      name: csi-resizer
+    - image: registry.k8s.io/sig-storage/csi-provisioner:v4.0.0
+      name: csi-provisioner
+    - image: registry.k8s.io/sig-storage/csi-snapshotter:v7.0.1
+      name: csi-snapshotter
+    - image: registry.k8s.io/sig-storage/csi-attacher:v4.5.0
+      name: csi-attacher
 
 metadata:
   annotations:
@@ -428,10 +445,3 @@ metadata:
           }
         }
       ]
-  relatedImages:
-    - image: rook/ceph:master
-      name: rook-container
-    - image: quay.io/ceph/ceph:v18.2.0
-      name: ceph-container
-    - image: quay.io/csiaddons/k8s-sidecar:v0.8.0
-      name: csiaddons-sidecar
