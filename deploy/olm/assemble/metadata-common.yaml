@@ -429,7 +429,7 @@ metadata:
         }
       ]
   relatedImages:
-    - image: docker.io/rook/ceph:master
+    - image: rook/ceph:master
       name: rook-container
     - image: quay.io/ceph/ceph:v18.2.0
       name: ceph-container
