@@ -1863,7 +1863,7 @@ metadata:
   name: rook-ceph-operator.v4.15.0
   namespace: placeholder
   relatedImages:
-    - image: docker.io/rook/ceph:master
+    - image: docker.io/rook/ceph:v1.13.0.399.g9c0d795e2
       name: rook-container
     - image: quay.io/ceph/ceph:v18.2.0
       name: ceph-container
