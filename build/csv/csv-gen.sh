@@ -20,6 +20,22 @@ CEPH_EXTERNAL_SCRIPT_FILE="../../deploy/examples/create-external-cluster-resourc
 ASSEMBLE_FILE_COMMON="../../deploy/olm/assemble/metadata-common.yaml"
 ASSEMBLE_FILE_OCP="../../deploy/olm/assemble/metadata-ocp.yaml"
 
+LATEST_ROOK_CSI_CEPH_IMAGE="quay.io/cephcsi/cephcsi:v3.10.2"
+LATEST_ROOK_CSI_REGISTRAR_IMAGE="registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.10.0"
+LATEST_ROOK_CSI_RESIZER_IMAGE="registry.k8s.io/sig-storage/csi-resizer:v1.10.0"
+LATEST_ROOK_CSI_PROVISIONER_IMAGE="registry.k8s.io/sig-storage/csi-provisioner:v4.0.0"
+LATEST_ROOK_CSI_SNAPSHOTTER_IMAGE="registry.k8s.io/sig-storage/csi-snapshotter:v7.0.1"
+LATEST_ROOK_CSI_ATTACHER_IMAGE="registry.k8s.io/sig-storage/csi-attacher:v4.5.0"
+LATEST_ROOK_CSIADDONS_IMAGE="quay.io/csiaddons/k8s-sidecar:v0.8.0"
+
+ROOK_CSI_CEPH_IMAGE=${ROOK_CSI_CEPH_IMAGE:-${LATEST_ROOK_CSI_CEPH_IMAGE}}
+ROOK_CSI_REGISTRAR_IMAGE=${ROOK_CSI_REGISTRAR_IMAGE:-${LATEST_ROOK_CSI_REGISTRAR_IMAGE}}
+ROOK_CSI_RESIZER_IMAGE=${ROOK_CSI_RESIZER_IMAGE:-${LATEST_ROOK_CSI_RESIZER_IMAGE}}
+ROOK_CSI_PROVISIONER_IMAGE=${ROOK_CSI_PROVISIONER_IMAGE:-${LATEST_ROOK_CSI_PROVISIONER_IMAGE}}
+ROOK_CSI_SNAPSHOTTER_IMAGE=${ROOK_CSI_SNAPSHOTTER_IMAGE:-${LATEST_ROOK_CSI_SNAPSHOTTER_IMAGE}}
+ROOK_CSI_ATTACHER_IMAGE=${ROOK_CSI_ATTACHER_IMAGE:-${LATEST_ROOK_CSI_ATTACHER_IMAGE}}
+ROOK_CSIADDONS_IMAGE=${ROOK_CSIADDONS_IMAGE:-${LATEST_ROOK_CSIADDONS_IMAGE}}
+
 #############
 # FUNCTIONS #
 #############
@@ -53,6 +69,15 @@ function generate_csv() {
     sed -i "s|image: rook/ceph:.*|image: $ROOK_IMAGE|" "$CSV_FILE_NAME"
     sed -i "s/name: rook-ceph.v.*/name: rook-ceph-operator.v$CSV_VERSION/g" "$CSV_FILE_NAME"
     sed -i "s/version: 0.0.0/version: $CSV_VERSION/g" "$CSV_FILE_NAME"
+
+    # Update the csi version according to the downstream build env change
+    sed -i "s|$LATEST_ROOK_CSI_CEPH_IMAGE|$ROOK_CSI_CEPH_IMAGE|g" "$CSV_FILE_NAME"
+    sed -i "s|$LATEST_ROOK_CSI_REGISTRAR_IMAGE|$ROOK_CSI_REGISTRAR_IMAGE|g" "$CSV_FILE_NAME"
+    sed -i "s|$LATEST_ROOK_CSI_RESIZER_IMAGE|$ROOK_CSI_RESIZER_IMAGE|g" "$CSV_FILE_NAME"
+    sed -i "s|$LATEST_ROOK_CSI_PROVISIONER_IMAGE|$ROOK_CSI_PROVISIONER_IMAGE|g" "$CSV_FILE_NAME"
+    sed -i "s|$LATEST_ROOK_CSI_SNAPSHOTTER_IMAGE|$ROOK_CSI_SNAPSHOTTER_IMAGE|g" "$CSV_FILE_NAME"
+    sed -i "s|$LATEST_ROOK_CSI_ATTACHER_IMAGE|$ROOK_CSI_ATTACHER_IMAGE|g" "$CSV_FILE_NAME"
+    sed -i "s|$LATEST_ROOK_CSIADDONS_IMAGE|$ROOK_CSIADDONS_IMAGE|g" "$CSV_FILE_NAME"
 
     mv "../../build/csv/ceph/$PLATFORM/manifests/"* "../../build/csv/ceph/"
     rm -rf "../../build/csv/ceph/$PLATFORM"
