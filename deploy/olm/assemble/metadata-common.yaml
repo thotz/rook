@@ -212,6 +212,9 @@ spec:
       "block storage",
       "shared filesystem",
     ]
+  provider:
+    name: Red Hat
+    url: https://www.redhat.com
   minKubeVersion: 1.16.0
   links:
     - name: Source Code
