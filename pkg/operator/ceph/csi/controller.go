@@ -130,9 +130,40 @@ func (r *ReconcileCSI) Reconcile(context context.Context, request reconcile.Requ
 	return reconcileResponse, err
 }
 
+// allow overriding for unit tests
+var reconcileSaveCSIDriverOptions = SaveCSIDriverOptions
+
 func (r *ReconcileCSI) reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// reconcileResult is used to communicate the result of the reconciliation back to the caller
 	var reconcileResult reconcile.Result
+
+	// Fetch the operator's configmap. We force the NamespaceName to the operator since the request
+	// could be a CephCluster. If so the NamespaceName will be the one from the cluster and thus the
+	// CM won't be found
+	opNamespaceName := types.NamespacedName{Name: opcontroller.OperatorSettingConfigMapName, Namespace: r.opConfig.OperatorNamespace}
+	opConfig := &v1.ConfigMap{}
+	err := r.client.Get(r.opManagerContext, opNamespaceName, opConfig)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			logger.Debug("operator's configmap resource not found. will use default value or env var.")
+			r.opConfig.Parameters = make(map[string]string)
+		} else {
+			// Error reading the object - requeue the request.
+			return opcontroller.ImmediateRetryResult, errors.Wrap(err, "failed to get operator's configmap")
+		}
+	} else {
+		// Populate the operator's config
+		r.opConfig.Parameters = opConfig.Data
+	}
+
+	// do not recocnile if csi driver is disabled
+	disableCSI, err := strconv.ParseBool(k8sutil.GetValue(r.opConfig.Parameters, "ROOK_CSI_DISABLE_DRIVER", "false"))
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "unable to parse value for 'ROOK_CSI_DISABLE_DRIVER")
+	} else if disableCSI {
+		logger.Info("ceph csi driver is disabled")
+		return reconcile.Result{}, nil
+	}
 
 	serverVersion, err := r.context.Clientset.Discovery().ServerVersion()
 	if err != nil {
@@ -168,29 +199,22 @@ func (r *ReconcileCSI) reconcile(request reconcile.Request) (reconcile.Result, e
 
 		return reconcile.Result{}, nil
 	}
-	// Fetch the operator's configmap. We force the NamespaceName to the operator since the request
-	// could be a CephCluster. If so the NamespaceName will be the one from the cluster and thus the
-	// CM won't be found
-	opNamespaceName := types.NamespacedName{Name: opcontroller.OperatorSettingConfigMapName, Namespace: r.opConfig.OperatorNamespace}
-	opConfig := &v1.ConfigMap{}
-	err = r.client.Get(r.opManagerContext, opNamespaceName, opConfig)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			logger.Debug("operator's configmap resource not found. will use default value or env var.")
-			r.opConfig.Parameters = make(map[string]string)
-		} else {
-			// Error reading the object - requeue the request.
-			return opcontroller.ImmediateRetryResult, errors.Wrap(err, "failed to get operator's configmap")
-		}
-	} else {
-		// Populate the operator's config
-		r.opConfig.Parameters = opConfig.Data
-	}
 
 	csiHostNetworkEnabled, err := strconv.ParseBool(k8sutil.GetValue(r.opConfig.Parameters, "CSI_ENABLE_HOST_NETWORK", "true"))
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to parse value for 'CSI_ENABLE_HOST_NETWORK'")
 	}
+
+	csiDisableHolders, err := strconv.ParseBool(k8sutil.GetValue(r.opConfig.Parameters, "CSI_DISABLE_HOLDER_PODS", "false"))
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "failed to parse value for 'CSI_DISABLE_HOLDER_PODS'")
+	}
+
+	// begin each reconcile with the assumption that holder pods won't be deployed
+	// the loop below will determine with each reconcile if they need deployed
+	// without this, holder pods won't be removed unless the operator is restarted
+	r.clustersWithHolder = []ClusterDetail{}
+	holderEnabled = false
 
 	for i, cluster := range cephClusters.Items {
 		if !cluster.DeletionTimestamp.IsZero() {
@@ -203,28 +227,40 @@ func (r *ReconcileCSI) reconcile(request reconcile.Request) (reconcile.Result, e
 			return reconcile.Result{}, nil
 		}
 
-		holderEnabled := !csiHostNetworkEnabled || cluster.Spec.Network.IsMultus()
+		// Load cluster info for later use in updating the ceph-csi configmap
+		clusterInfo, _, _, err := opcontroller.LoadClusterInfo(r.context, r.opManagerContext, cluster.Namespace, &cephClusters.Items[i].Spec)
+		if err != nil {
+			// This avoids a requeue with exponential backoff and allows the controller to reconcile
+			// more quickly when the cluster is ready.
+			if errors.Is(err, opcontroller.ClusterInfoNoClusterNoSecret) {
+				logger.Infof("cluster info for cluster %q is not ready yet, will retry in %s, proceeding with ready clusters", cluster.Name, opcontroller.WaitForRequeueIfCephClusterNotReady.RequeueAfter.String())
+				reconcileResult = opcontroller.WaitForRequeueIfCephClusterNotReady
+				continue
+			}
+			return opcontroller.ImmediateRetryResult, errors.Wrapf(err, "failed to load cluster info for cluster %q", cluster.Name)
+		}
+		clusterInfo.OwnerInfo = k8sutil.NewOwnerInfo(&cephClusters.Items[i], r.scheme)
+
+		// is holder enabled for this cluster?
+		thisHolderEnabled := (!csiHostNetworkEnabled || cluster.Spec.Network.IsMultus()) && !csiDisableHolders
+
 		// Do we have a multus cluster or csi host network disabled?
 		// If so deploy the plugin holder with the fsid attached
-		if holderEnabled {
-			// Load cluster info for later use in updating the ceph-csi configmap
-			clusterInfo, _, _, err := opcontroller.LoadClusterInfo(r.context, r.opManagerContext, cluster.Namespace, &cephClusters.Items[i].Spec)
-			if err != nil {
-				// This avoids a requeue with exponential backoff and allows the controller to reconcile
-				// more quickly when the cluster is ready.
-				if errors.Is(err, opcontroller.ClusterInfoNoClusterNoSecret) {
-					logger.Infof("cluster info for cluster %q is not ready yet, will retry in %s, proceeding with ready clusters", cluster.Name, opcontroller.WaitForRequeueIfCephClusterNotReady.RequeueAfter.String())
-					reconcileResult = opcontroller.WaitForRequeueIfCephClusterNotReady
-					continue
-				}
-				return opcontroller.ImmediateRetryResult, errors.Wrapf(err, "failed to load cluster info for cluster %q", cluster.Name)
-			}
-			clusterInfo.OwnerInfo = k8sutil.NewOwnerInfo(&cephClusters.Items[i], r.scheme)
-			logger.Debugf("cluster %q is running on multus or CSI_ENABLE_HOST_NETWORK is false, deploying the ceph-csi plugin holder", cluster.Name)
-
+		if thisHolderEnabled {
+			logger.Debugf("cluster %q: deploying the ceph-csi plugin holder", cluster.Name)
 			r.clustersWithHolder = append(r.clustersWithHolder, ClusterDetail{cluster: &cephClusters.Items[i], clusterInfo: clusterInfo})
+
+			// holder pods are enabled globally if any cluster needs a holder pod
+			holderEnabled = true
 		} else {
-			logger.Debugf("not a multus cluster %q or CSI_ENABLE_HOST_NETWORK is true, not deploying the ceph-csi plugin holder", request.NamespacedName)
+			logger.Debugf("cluster %q: not deploying the ceph-csi plugin holder", request.NamespacedName)
+		}
+
+		// if holder pods were disabled, the controller needs to update the configmap for each
+		// cephcluster to remove the net namespace file path
+		err = reconcileSaveCSIDriverOptions(r.context.Clientset, cluster.Namespace, clusterInfo)
+		if err != nil {
+			return opcontroller.ImmediateRetryResult, errors.Wrapf(err, "failed to update CSI driver options for cluster %q", cluster.Name)
 		}
 	}
 

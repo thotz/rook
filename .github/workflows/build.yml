@@ -30,7 +30,7 @@ jobs:
           go-version: "1.21"
 
       - name: Set up Helm
-        uses: azure/setup-helm@v3
+        uses: azure/setup-helm@v4
         with:
           version: v3.6.2
 
@@ -60,7 +60,7 @@ jobs:
         run: tests/scripts/validate_modified_files.sh modcheck
 
       - name: run crds-gen
-        run: make csv-clean && GOPATH=$(go env GOPATH) make crds
+        run: GOPATH=$(go env GOPATH) make crds
 
       - name: validate crds-gen
         run: tests/scripts/validate_modified_files.sh crd
@@ -97,3 +97,9 @@ jobs:
       - name: build.all rook with go ${{ matrix.go-version }}
         run: |
           tests/scripts/github-action-helper.sh build_rook_all
+
+      - name: run gen-csv
+        run: make csv-clean && GOPATH=$(go env GOPATH) make gen-csv
+
+      - name: validate gen-csv
+        run: tests/scripts/validate_modified_files.sh gen-csv

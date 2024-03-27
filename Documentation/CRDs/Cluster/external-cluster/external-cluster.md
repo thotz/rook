@@ -60,6 +60,9 @@ python3 create-external-cluster-resources.py --rbd-data-pool-name <pool_name> --
 * `--upgrade`: (optional) Upgrades the cephCSIKeyrings(For example: client.csi-cephfs-provisioner) and client.healthchecker ceph users with new permissions needed for the new cluster version and older permission will still be applied.
 * `--restricted-auth-permission`: (optional) Restrict cephCSIKeyrings auth permissions to specific pools, and cluster. Mandatory flags that need to be set are `--rbd-data-pool-name`, and `--k8s-cluster-name`. `--cephfs-filesystem-name` flag can also be passed in case of CephFS user restriction, so it can restrict users to particular CephFS filesystem.
 * `--v2-port-enable`: (optional) Enables the v2 mon port (3300) for mons.
+*  `--topology-pools`: (optional) Comma-separated list of topology-constrained rbd pools
+*  `--topology-failure-domain-label`: (optional) K8s cluster failure domain label (example: zone, rack, or host) for the topology-pools that match the ceph domain
+*  `--topology-failure-domain-values`: (optional) Comma-separated list of the k8s cluster failure domain values corresponding to each of the pools in the `topology-pools` list
 
 ### Multi-tenancy
 
@@ -84,6 +87,15 @@ See the [Multisite doc](https://docs.ceph.com/en/quincy/radosgw/multisite/#confi
 python3 create-external-cluster-resources.py --rbd-data-pool-name <pool_name> --format bash --rgw-endpoint <rgw_endpoint> --rgw-realm-name <rgw_realm_name>> --rgw-zonegroup-name <rgw_zonegroup_name> --rgw-zone-name <rgw_zone_name>>
 ```
 
+### Topology Based Provisioning
+
+Enable Topology Based Provisioning for RBD pools by passing `--topology-pools`, `--topology-failure-domain-label` and `--topology-failure-domain-values` flags.
+A new storageclass named `ceph-rbd-topology` will be created by the import script with `volumeBindingMode: WaitForFirstConsumer`.
+The storageclass is used to create a volume in the pool matching the topology where a pod is scheduled.
+
+For more details, see the [Topology-Based Provisioning](topology-for-external-mode.md)
+
+
 ### Upgrade Example
 
 1) If consumer cluster doesn't have restricted caps, this will upgrade all the default csi-users (non-restricted):
@@ -102,6 +114,24 @@ python3 create-external-cluster-resources.py --upgrade --rbd-data-pool-name repl
 !!! note
     An existing non-restricted user cannot be converted to a restricted user by upgrading.
     The upgrade flag should only be used to append new permissions to users. It shouldn't be used for changing a csi user already applied permissions. For example, you shouldn't change the pool(s) a user has access to.
+
+### Admin privileges
+
+If in case the cluster needs the admin keyring to configure, update the admin key `rook-ceph-mon` secret with client.admin keyring
+
+!!! note
+    Sharing the admin key with the external cluster is not generally recommended
+
+1. Get the `client.admin` keyring from the ceph cluster
+    ```console
+    ceph auth get client.admin
+    ```
+
+2. Update two values in the `rook-ceph-mon` secret:
+    - `ceph-username`: Set to `client.admin`
+    - `ceph-secret`: Set the client.admin keyring
+
+After restarting the rook operator (and the toolbox if in use), rook will configure ceph with admin privileges.
 
 ### 2. Copy the bash output
 
@@ -122,29 +152,6 @@ export RGW_POOL_PREFIX=default
 ```
 
 ## Commands on the K8s consumer cluster
-
-### Import the Source Data
-
-1. Paste the above output from `create-external-cluster-resources.py` into your current shell to allow importing the source data.
-
-1. The import script in the next step uses the current kubeconfig context by
-   default. If you want to specify the kubernetes cluster to use without
-   changing the current context, you can specify the cluster name by setting
-   the KUBECONTEXT environment variable.
-
-   ```console
-   export KUBECONTEXT=hub-cluster
-   ```
-
-1. Run the [import](https://github.com/rook/rook/blob/master/deploy/examples/import-external-cluster.sh) script.
-
-   !!! note
-       If your Rook cluster nodes are running a kernel earlier than or equivalent to 5.4, remove
-       `fast-diff,object-map,deep-flatten,exclusive-lock` from the `imageFeatures` line.
-
-    ```console
-    . import-external-cluster.sh
-    ```
 
 ### Helm Installation
 
@@ -170,6 +177,29 @@ If not installing with Helm, here are the steps to install with manifests.
 
 2. Create [common-external.yaml](https://github.com/rook/rook/blob/master/deploy/examples/common-external.yaml) and [cluster-external.yaml](https://github.com/rook/rook/blob/master/deploy/examples/cluster-external.yaml)
 
+### Import the Source Data
+
+1. Paste the above output from `create-external-cluster-resources.py` into your current shell to allow importing the source data.
+
+1. The import script in the next step uses the current kubeconfig context by
+   default. If you want to specify the kubernetes cluster to use without
+   changing the current context, you can specify the cluster name by setting
+   the KUBECONTEXT environment variable.
+
+   ```console
+   export KUBECONTEXT=<cluster-name>
+   ```
+
+1. Run the [import](https://github.com/rook/rook/blob/master/deploy/examples/import-external-cluster.sh) script.
+
+   !!! note
+       If your Rook cluster nodes are running a kernel earlier than or equivalent to 5.4, remove
+       `fast-diff,object-map,deep-flatten,exclusive-lock` from the `imageFeatures` line.
+
+    ```console
+    . import-external-cluster.sh
+    ```
+
 ### Cluster Verification
 
 1. Verify the consumer cluster is connected to the source ceph cluster:
@@ -191,23 +221,32 @@ If not installing with Helm, here are the steps to install with manifests.
 
 ### Connect to an External Object Store
 
-Create the object store resources:
-
-1. Create the [external object store CR](https://github.com/rook/rook/blob/master/deploy/examples/object-external.yaml) to configure connection to external gateways.
-2. Create an [Object store user](https://github.com/rook/rook/blob/master/deploy/examples/object-user.yaml) for credentials to access the S3 endpoint.
-3. Create a [bucket storage class](https://github.com/rook/rook/blob/master/deploy/examples/storageclass-bucket-delete.yaml) where a client can request creating buckets.
-4. Create the [Object Bucket Claim](https://github.com/rook/rook/blob/master/deploy/examples/object-bucket-claim-delete.yaml), which will create an individual bucket for reading and writing objects.
+Create the [external object store CR](https://github.com/rook/rook/blob/master/deploy/examples/object-external.yaml) to configure connection to external gateways.
 
 ```console
     cd deploy/examples
     kubectl create -f object-external.yaml
+```
+
+Consume the S3 Storage, in two different ways:
+
+1. Create an [Object store user](https://github.com/rook/rook/blob/master/deploy/examples/object-user.yaml) for credentials to access the S3 endpoint.
+
+```console
+    cd deploy/examples
     kubectl create -f object-user.yaml
+```
+
+2. Create a [bucket storage class](https://github.com/rook/rook/blob/master/deploy/examples/storageclass-bucket-delete.yaml) where a client can request creating buckets and then create the [Object Bucket Claim](https://github.com/rook/rook/blob/master/deploy/examples/object-bucket-claim-delete.yaml), which will create an individual bucket for reading and writing objects.
+
+```console
+    cd deploy/examples
     kubectl create -f storageclass-bucket-delete.yaml
     kubectl create -f object-bucket-claim-delete.yaml
 ```
 
 !!! hint
-    For more details see the [Object Store topic](../../Storage-Configuration/Object-Storage-RGW/object-storage.md#connect-to-an-external-object-store)
+    For more details see the [Object Store topic](../../../Storage-Configuration/Object-Storage-RGW/object-storage.md#connect-to-an-external-object-store)
 
 ### Connect to v2 mon port
 

@@ -9,6 +9,9 @@ data:
   ROOK_LOG_LEVEL: {{ .Values.logLevel | quote }}
   ROOK_CEPH_COMMANDS_TIMEOUT_SECONDS: {{ .Values.cephCommandsTimeoutSeconds | quote }}
   ROOK_OBC_WATCH_OPERATOR_NAMESPACE: {{ .Values.enableOBCWatchOperatorNamespace | quote }}
+{{- if .Values.obcProvisionerNamePrefix }}
+  ROOK_OBC_PROVISIONER_NAME_PREFIX: {{ .Values.obcProvisionerNamePrefix | quote }}
+{{- end }}
   ROOK_CEPH_ALLOW_LOOP_DEVICES: {{ .Values.allowLoopDevices | quote }}
   ROOK_ENABLE_DISCOVERY_DAEMON: {{ .Values.enableDiscoveryDaemon | quote }}
 {{- if .Values.discoverDaemonUdev }}
@@ -17,6 +20,7 @@ data:
 {{- if .Values.csi }}
   ROOK_CSI_ENABLE_RBD: {{ .Values.csi.enableRbdDriver | quote }}
   ROOK_CSI_ENABLE_CEPHFS: {{ .Values.csi.enableCephfsDriver | quote }}
+  ROOK_CSI_DISABLE_DRIVER: {{ .Values.csi.disableCsiDriver | quote }}
   CSI_ENABLE_CEPHFS_SNAPSHOTTER: {{ .Values.csi.enableCephfsSnapshotter | quote }}
   CSI_ENABLE_NFS_SNAPSHOTTER: {{ .Values.csi.enableNFSSnapshotter | quote }}
   CSI_ENABLE_RBD_SNAPSHOTTER: {{ .Values.csi.enableRBDSnapshotter | quote }}
@@ -24,7 +28,9 @@ data:
   CSI_ENABLE_ENCRYPTION: {{ .Values.csi.enableCSIEncryption | quote }}
   CSI_ENABLE_OMAP_GENERATOR: {{ .Values.csi.enableOMAPGenerator | quote }}
   CSI_ENABLE_HOST_NETWORK: {{ .Values.csi.enableCSIHostNetwork | quote }}
+  CSI_DISABLE_HOLDER_PODS: {{ .Values.csi.disableHolderPods | quote }}
   CSI_ENABLE_METADATA: {{ .Values.csi.enableMetadata | quote }}
+  CSI_ENABLE_VOLUME_GROUP_SNAPSHOT: {{ .Values.csi.enableVolumeGroupSnapshot | quote }}
 {{- if .Values.csi.csiDriverNamePrefix }}
   CSI_DRIVER_NAME_PREFIX: {{ .Values.csi.csiDriverNamePrefix | quote }}
 {{- end }}

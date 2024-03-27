@@ -1872,6 +1872,20 @@ PoolSpec
 </tr>
 <tr>
 <td>
+<code>sharedPools</code><br/>
+<em>
+<a href="#ceph.rook.io/v1.ObjectSharedPoolsSpec">
+ObjectSharedPoolsSpec
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The pool information when configuring RADOS namespaces in existing pools.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>preservePoolsOnDelete</code><br/>
 <em>
 bool
@@ -1953,6 +1967,20 @@ namespaces, otherwise list individual namespaces that are to be allowed.
 This is useful for applications that need object store credentials
 to be created in their own namespace, where neither OBCs nor COSI
 is being used to create buckets. The default is empty.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>hosting</code><br/>
+<em>
+<a href="#ceph.rook.io/v1.ObjectStoreHostingSpec">
+ObjectStoreHostingSpec
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Hosting settings for the object store</p>
 </td>
 </tr>
 </table>
@@ -2201,6 +2229,20 @@ PoolSpec
 </td>
 <td>
 <p>The data pool settings</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sharedPools</code><br/>
+<em>
+<a href="#ceph.rook.io/v1.ObjectSharedPoolsSpec">
+ObjectSharedPoolsSpec
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The pool information when configuring RADOS namespaces in existing pools.</p>
 </td>
 </tr>
 <tr>
@@ -8938,6 +8980,93 @@ PullSpec
 </tr>
 </tbody>
 </table>
+<h3 id="ceph.rook.io/v1.ObjectSharedPoolsSpec">ObjectSharedPoolsSpec
+</h3>
+<p>
+(<em>Appears on:</em><a href="#ceph.rook.io/v1.ObjectStoreSpec">ObjectStoreSpec</a>, <a href="#ceph.rook.io/v1.ObjectZoneSpec">ObjectZoneSpec</a>)
+</p>
+<div>
+<p>ObjectSharedPoolsSpec represents object store pool info when configuring RADOS namespaces in existing pools.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>metadataPoolName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The metadata pool used for creating RADOS namespaces in the object store</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>dataPoolName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The data pool used for creating RADOS namespaces in the object store</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>preserveRadosNamespaceDataOnDelete</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Whether the RADOS namespaces should be preserved on deletion of the object store</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ceph.rook.io/v1.ObjectStoreHostingSpec">ObjectStoreHostingSpec
+</h3>
+<p>
+(<em>Appears on:</em><a href="#ceph.rook.io/v1.ObjectStoreSpec">ObjectStoreSpec</a>)
+</p>
+<div>
+<p>ObjectStoreHostingSpec represents the hosting settings for the object store</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>dnsNames</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>A list of DNS names in which bucket can be accessed via virtual host path. These names need to valid according RFC-1123.
+Each domain requires wildcard support like ingress loadbalancer.
+Do not include the wildcard itself in the list of hostnames (e.g. use &ldquo;mystore.example.com&rdquo; instead of &ldquo;*.mystore.example.com&rdquo;).
+Add all hostnames including user-created Kubernetes Service endpoints to the list.
+CephObjectStore Service Endpoints and CephObjectZone customEndpoints are automatically added to the list.
+The feature is supported only for Ceph v18 and later versions.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="ceph.rook.io/v1.ObjectStoreSecuritySpec">ObjectStoreSecuritySpec
 </h3>
 <p>
@@ -9029,6 +9158,20 @@ PoolSpec
 </tr>
 <tr>
 <td>
+<code>sharedPools</code><br/>
+<em>
+<a href="#ceph.rook.io/v1.ObjectSharedPoolsSpec">
+ObjectSharedPoolsSpec
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The pool information when configuring RADOS namespaces in existing pools.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>preservePoolsOnDelete</code><br/>
 <em>
 bool
@@ -9110,6 +9253,20 @@ namespaces, otherwise list individual namespaces that are to be allowed.
 This is useful for applications that need object store credentials
 to be created in their own namespace, where neither OBCs nor COSI
 is being used to create buckets. The default is empty.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>hosting</code><br/>
+<em>
+<a href="#ceph.rook.io/v1.ObjectStoreHostingSpec">
+ObjectStoreHostingSpec
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Hosting settings for the object store</p>
 </td>
 </tr>
 </tbody>
@@ -9681,6 +9838,20 @@ PoolSpec
 </td>
 <td>
 <p>The data pool settings</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sharedPools</code><br/>
+<em>
+<a href="#ceph.rook.io/v1.ObjectSharedPoolsSpec">
+ObjectSharedPoolsSpec
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The pool information when configuring RADOS namespaces in existing pools.</p>
 </td>
 </tr>
 <tr>

@@ -20,6 +20,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -82,6 +83,8 @@ type Param struct {
 	CephFSAttachRequired                     bool
 	RBDAttachRequired                        bool
 	NFSAttachRequired                        bool
+	VolumeGroupSnapshotSupported             bool
+	EnableVolumeGroupSnapshot                bool
 	LogLevel                                 uint8
 	SidecarLogLevel                          uint8
 	CephFSLivenessMetricsPort                uint16
@@ -137,11 +140,11 @@ var (
 var (
 	// image names
 	DefaultCSIPluginImage   = "quay.io/cephcsi/cephcsi:v3.10.2"
-	DefaultRegistrarImage   = "registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.9.1"
-	DefaultProvisionerImage = "registry.k8s.io/sig-storage/csi-provisioner:v3.6.3"
-	DefaultAttacherImage    = "registry.k8s.io/sig-storage/csi-attacher:v4.4.2"
-	DefaultSnapshotterImage = "registry.k8s.io/sig-storage/csi-snapshotter:v6.3.2"
-	DefaultResizerImage     = "registry.k8s.io/sig-storage/csi-resizer:v1.9.2"
+	DefaultRegistrarImage   = "registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.10.0"
+	DefaultProvisionerImage = "registry.k8s.io/sig-storage/csi-provisioner:v4.0.0"
+	DefaultAttacherImage    = "registry.k8s.io/sig-storage/csi-attacher:v4.5.0"
+	DefaultSnapshotterImage = "registry.k8s.io/sig-storage/csi-snapshotter:v7.0.1"
+	DefaultResizerImage     = "registry.k8s.io/sig-storage/csi-resizer:v1.10.0"
 	DefaultCSIAddonsImage   = "quay.io/csiaddons/k8s-sidecar:v0.8.0"
 
 	// image pull policy
@@ -417,14 +420,6 @@ func (r *ReconcileCSI) startDrivers(ver *version.Info, ownerInfo *k8sutil.OwnerI
 		})
 	}
 
-	holderEnabled = !CSIParam.EnableCSIHostNetwork
-
-	for i := range r.clustersWithHolder {
-		if r.clustersWithHolder[i].cluster.Spec.Network.IsMultus() {
-			holderEnabled = true
-			break
-		}
-	}
 	// get common provisioner tolerations and node affinity
 	provisionerTolerations := getToleration(r.opConfig.Parameters, provisionerTolerationsEnv, []corev1.Toleration{})
 	provisionerNodeAffinity := getNodeAffinity(r.opConfig.Parameters, provisionerNodeAffinityEnv, &corev1.NodeAffinity{})
@@ -942,6 +937,15 @@ func GenerateNetNamespaceFilePath(ctx context.Context, client client.Client, clu
 	err := client.Get(ctx, opNamespaceName, opConfig)
 	if err != nil && !kerrors.IsNotFound(err) {
 		return "", errors.Wrap(err, "failed to get operator's configmap")
+	}
+
+	// net namespace file path is empty string if holder pods are disabled
+	csiDisableHolders, err := strconv.ParseBool(k8sutil.GetValue(opConfig.Data, "CSI_DISABLE_HOLDER_PODS", "false"))
+	if err != nil {
+		return "", errors.Wrap(err, "failed to parse value for 'CSI_DISABLE_HOLDER_PODS'")
+	}
+	if csiDisableHolders {
+		return "", nil
 	}
 
 	switch driverName {

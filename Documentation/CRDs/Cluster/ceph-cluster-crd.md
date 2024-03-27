@@ -8,7 +8,7 @@ There are primarily four different modes in which to create your cluster.
 1. [Host Storage Cluster](host-cluster.md): Consume storage from host paths and raw devices
 2. [PVC Storage Cluster](pvc-cluster.md): Dynamically provision storage underneath Rook by specifying the storage class Rook should use to consume storage (via PVCs)
 3. [Stretched Storage Cluster](stretch-cluster.md): Distribute Ceph mons across three zones, while storage (OSDs) is only configured in two zones
-4. [External Ceph Cluster](external-cluster.md): Connect your K8s applications to an external Ceph cluster
+4. [External Ceph Cluster](external-cluster/external-cluster.md): Connect your K8s applications to an external Ceph cluster
 
 See the separate topics for a description and examples of each of these scenarios.
 
@@ -24,9 +24,9 @@ Settings can be specified at the global level to apply to the cluster as a whole
 ### Cluster Settings
 
 * `external`:
-    * `enable`: if `true`, the cluster will not be managed by Rook but via an external entity. This mode is intended to connect to an existing cluster. In this case, Rook will only consume the external cluster. However, Rook will be able to deploy various daemons in Kubernetes such as object gateways, mds and nfs if an image is provided and will refuse otherwise. If this setting is enabled **all** the other options will be ignored except `cephVersion.image` and `dataDirHostPath`. See [external cluster configuration](external-cluster.md). If `cephVersion.image` is left blank, Rook will refuse the creation of extra CRs like object, file and nfs.
+    * `enable`: if `true`, the cluster will not be managed by Rook but via an external entity. This mode is intended to connect to an existing cluster. In this case, Rook will only consume the external cluster. However, Rook will be able to deploy various daemons in Kubernetes such as object gateways, mds and nfs if an image is provided and will refuse otherwise. If this setting is enabled **all** the other options will be ignored except `cephVersion.image` and `dataDirHostPath`. See [external cluster configuration](external-cluster/external-cluster.md). If `cephVersion.image` is left blank, Rook will refuse the creation of extra CRs like object, file and nfs.
 * `cephVersion`: The version information for launching the ceph daemons.
-    * `image`: The image used for running the ceph daemons. For example, `quay.io/ceph/ceph:v18.2.1`. For more details read the [container images section](#ceph-container-images).
+    * `image`: The image used for running the ceph daemons. For example, `quay.io/ceph/ceph:v18.2.2`. For more details read the [container images section](#ceph-container-images).
   For the latest ceph images, see the [Ceph DockerHub](https://hub.docker.com/r/ceph/ceph/tags/).
   To ensure a consistent version of the image is running across all nodes in the cluster, it is recommended to use a very specific image version.
   Tags also exist that would give the latest version, but they are only recommended for test environments. For example, the tag `v17` will be updated each time a new Quincy build is released.
@@ -110,8 +110,8 @@ These are general purpose Ceph container with all necessary daemons and dependen
 | -------------------- | --------------------------------------------------------- |
 | vRELNUM              | Latest release in this series (e.g., *v17* = Quincy)      |
 | vRELNUM.Y            | Latest stable release in this stable series (e.g., v17.2) |
-| vRELNUM.Y.Z          | A specific release (e.g., v18.2.1)                        |
-| vRELNUM.Y.Z-YYYYMMDD | A specific build (e.g., v18.2.1-20240103)                 |
+| vRELNUM.Y.Z          | A specific release (e.g., v18.2.2)                        |
+| vRELNUM.Y.Z-YYYYMMDD | A specific build (e.g., v18.2.2-20240311)                 |
 
 A specific will contain a specific release of Ceph as well as security fixes from the Operating System.
 
@@ -220,157 +220,14 @@ Configure the network that will be enabled for the cluster and services.
       See the kernel requirements above for encryption.
 
 !!! caution
-    Changing networking configuration after a Ceph cluster has been deployed is NOT
-    supported and will result in a non-functioning cluster.
+    Changing networking configuration after a Ceph cluster has been deployed is only supported for
+    the network encryption settings. Changing other network settings is *NOT* supported and will
+    likely result in a non-functioning cluster.
 
-#### Ceph public and cluster networks
+#### Provider
 
-Ceph daemons can operate on up to two distinct networks: public, and cluster.
-
-Ceph daemons always use the public network, which is the Kubernetes pod network by default. The
-public network is used for client communications with the Ceph cluster (reads/writes).
-
-If specified, the cluster network is used to isolate internal Ceph replication traffic. This includes
-additional copies of data replicated between OSDs during client reads/writes. This also includes OSD
-data recovery (re-replication) when OSDs or nodes go offline. If the cluster network is unspecified,
-the public network is used for this traffic instead.
-
-Some Rook network providers allow manually specifying the public and network interfaces that Ceph
-will use for data traffic. Use `addressRanges` to specify this. For example:
-
-```yaml
-  network:
-    provider: host
-    addressRanges:
-      public:
-        - "192.168.100.0/24"
-        - "192.168.101.0/24"
-      cluster:
-        - "192.168.200.0/24"
-```
-
-This spec translates directly to Ceph's `public_network` and `host_network` configurations.
-Refer to [Ceph networking documentation](https://docs.ceph.com/docs/master/rados/configuration/network-config-ref/)
-for more details.
-
-The default, unspecified network provider cannot make use of these configurations.
-
-Ceph public and cluster network configurations are allowed to change, but this should be done with
-great care. When updating underlying networks or Ceph network settings, Rook assumes that the
-current network configuration used by Ceph daemons will continue to operate as intended. Network
-changes are not applied to Ceph daemon pods (like OSDs and MDSes) until the pod is restarted. When
-making network changes, ensure that restarted pods will not lose connectivity to existing pods, and
-vice versa.
-
-#### Host Networking
-
-To use host networking, set `provider: host`.
-
-To instruct Ceph to operate on specific host interfaces or networks, use `addressRanges` to select
-the network CIDRs Ceph will bind to on the host.
-
-If the host networking setting is changed in a cluster where mons are already running, the existing mons will
-remain running with the same network settings with which they were created. To complete the conversion
-to or from host networking after you update this setting, you will need to
-[failover the mons](../../Storage-Configuration/Advanced/ceph-mon-health.md#failing-over-a-monitor)
-in order to have mons on the desired network configuration.
-
-#### Multus
-
-Rook supports using Multus NetworkAttachmentDefinitions for Ceph public and cluster networks.
-
-Refer to [Multus documentation](https://github.com/k8snetworkplumbingwg/multus-cni/blob/master/docs/how-to-use.md)
-for details about how to set up and select Multus networks.
-
-Rook will attempt to auto-discover the network CIDRs for selected public and/or cluster networks.
-This process is not guaranteed to succeed. Furthermore, this process will get a new network lease
-for each CephCluster reconcile. Specify `addressRanges` manually if the auto-detection process
-fails or if the selected network configuration cannot automatically recycle released network leases.
-
-Only OSD pods will have both public and cluster networks attached (if specified). The rest of the
-Ceph component pods and CSI pods will only have the public network attached. The Rook operator will
-not have any networks attached; it proxies Ceph commands via a sidecar container in the mgr pod.
-
-A NetworkAttachmentDefinition must exist before it can be used by Multus for a Ceph network. A
-recommended definition will look like the following:
-
-```yaml
-apiVersion: "k8s.cni.cncf.io/v1"
-kind: NetworkAttachmentDefinition
-metadata:
-  name: ceph-multus-net
-  namespace: rook-ceph
-spec:
-  config: '{
-      "cniVersion": "0.3.0",
-      "type": "macvlan",
-      "master": "eth0",
-      "mode": "bridge",
-      "ipam": {
-        "type": "whereabouts",
-        "range": "192.168.200.0/24"
-      }
-    }'
-```
-
-* Ensure that `master` matches the network interface on hosts that you want to use.
-  It must be the same across all hosts.
-* CNI type `macvlan` is highly recommended.
-  It has less CPU and memory overhead compared to traditional Linux `bridge` configurations.
-* IPAM type `whereabouts` is recommended because it ensures each pod gets an IP address unique
-  within the Kubernetes cluster. No DHCP server is required. If a DHCP server is present on the
-  network, ensure the IP range does not overlap with the DHCP server's range.
-
-NetworkAttachmentDefinitions are selected for the desired Ceph network using `selectors`. Selector
-values should include the namespace in which the NAD is present. `public` and `cluster` may be
-selected independently. If `public` is left unspecified, Rook will configure Ceph to use the
-Kubernetes pod network for Ceph client traffic.
-
-Consider the example below which selects a hypothetical Kubernetes-wide Multus network in the
-default namespace for Ceph's public network and selects a Ceph-specific network in the `rook-ceph`
-namespace for Ceph's cluster network. The commented-out portion shows an example of how address
-ranges could be manually specified for the networks if needed.
-
-```yaml
-  network:
-    provider: multus
-    selectors:
-      public: default/kube-multus-net
-      cluster: rook-ceph/ceph-multus-net
-    # addressRanges:
-    #   public:
-    #     - "192.168.100.0/24"
-    #     - "192.168.101.0/24"
-    #   cluster:
-    #     - "192.168.200.0/24"
-```
-
-##### Validating Multus configuration
-
-We **highly** recommend validating your Multus configuration before you install Rook. A tool exists
-to facilitate validating the Multus configuration. After installing the Rook operator and before
-installing any Custom Resources, run the tool from the operator pod.
-
-The tool's CLI is designed to be as helpful as possible. Get help text for the multus validation
-tool like so:
-```console
-kubectl --namespace rook-ceph exec -it deploy/rook-ceph-operator -- rook multus validation run --help
-```
-
-Then, update the args in the [multus-validation](https://github.com/rook/rook/blob/master/deploy/examples/multus-validation.yaml) job template. Minimally, add the NAD names(s) for public and/or cluster as needed and and then, create the job to validate the Multus configuration.
-
-If the tool fails, it will suggest what things may be preventing Multus networks from working
-properly, and it will request the logs and outputs that will help debug issues.
-
-Check the logs of the pod created by the job to know the status of the validation test.
-
-##### Known limitations with Multus
-
-Daemons leveraging Kubernetes service IPs (Monitors, Managers, Rados Gateways) are not listening on the NAD specified in the `selectors`.
-Instead the daemon listens on the default network, however the NAD is attached to the container,
-allowing the daemon to communicate with the rest of the cluster. There is work in progress to fix
-this issue in the [multus-service](https://github.com/k8snetworkplumbingwg/multus-service)
-repository. At the time of writing it's unclear when this will be supported.
+Selecting a non-default network provider is an advanced topic. Read more in the
+[Network Providers](./network-providers.md) documentation.
 
 #### IPFamily
 
@@ -557,7 +414,7 @@ metadata:
   namespace: rook-ceph
 spec:
   cephVersion:
-    image: quay.io/ceph/ceph:v18.2.1
+    image: quay.io/ceph/ceph:v18.2.2
   dataDirHostPath: /var/lib/rook
   mon:
     count: 3
@@ -660,7 +517,7 @@ metadata:
   namespace: rook-ceph
 spec:
   cephVersion:
-    image: quay.io/ceph/ceph:v18.2.1
+    image: quay.io/ceph/ceph:v18.2.2
   dataDirHostPath: /var/lib/rook
   mon:
     count: 3
@@ -788,7 +645,7 @@ kubectl -n rook-ceph get CephCluster -o yaml
       deviceClasses:
       - name: hdd
     version:
-      image: quay.io/ceph/ceph:v18.2.1
+      image: quay.io/ceph/ceph:v18.2.2
       version: 16.2.6-0
     conditions:
     - lastHeartbeatTime: "2021-03-02T21:22:11Z"

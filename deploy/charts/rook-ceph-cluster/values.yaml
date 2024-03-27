@@ -25,7 +25,7 @@ toolbox:
   # -- Enable Ceph debugging pod deployment. See [toolbox](../Troubleshooting/ceph-toolbox.md)
   enabled: false
   # -- Toolbox image, defaults to the image used by the Ceph cluster
-  image: #quay.io/ceph/ceph:v18.2.1
+  image: #quay.io/ceph/ceph:v18.2.2
   # -- Toolbox tolerations
   tolerations: []
   # -- Toolbox affinity
@@ -61,7 +61,7 @@ monitoring:
   # externalMgrEndpoints: <list of endpoints>
   # externalMgrPrometheusPort: <port>
   # Scrape interval for prometheus
-  # interval: 5s
+  # interval: 10s
   # allow adding custom labels and annotations to the prometheus rule
   prometheusRule:
     # -- Labels applied to PrometheusRule
@@ -92,9 +92,9 @@ cephClusterSpec:
     # v17 is Quincy, v18 is Reef.
     # RECOMMENDATION: In production, use a specific version tag instead of the general v18 flag, which pulls the latest release and could result in different
     # versions running within the cluster. See tags available at https://hub.docker.com/r/ceph/ceph/tags/.
-    # If you want to be more precise, you can always use a timestamp tag such as quay.io/ceph/ceph:v18.2.1-20240103
+    # If you want to be more precise, you can always use a timestamp tag such as quay.io/ceph/ceph:v18.2.2-20240311
     # This tag might not contain a new Ceph version, just security fixes from the underlying operating system, which will reduce vulnerabilities
-    image: quay.io/ceph/ceph:v18.2.1
+    image: quay.io/ceph/ceph:v18.2.2
     # Whether to allow unsupported versions of Ceph. Currently `quincy`, and `reef` are supported.
     # Future versions such as `squid` (v19) would require this to be set to `true`.
     # Do not set to true in production.
@@ -440,7 +440,7 @@ cephBlockPools:
       replicated:
         size: 3
       # Enables collecting RBD per-image IO statistics by enabling dynamic OSD performance counters. Defaults to false.
-      # For reference: https://docs.ceph.com/docs/master/mgr/prometheus/#rbd-io-statistics
+      # For reference: https://docs.ceph.com/docs/latest/mgr/prometheus/#rbd-io-statistics
       # enableRBDStats: true
     storageClass:
       enabled: true
@@ -460,16 +460,16 @@ cephBlockPools:
       parameters:
         # (optional) mapOptions is a comma-separated list of map options.
         # For krbd options refer
-        # https://docs.ceph.com/docs/master/man/8/rbd/#kernel-rbd-krbd-options
+        # https://docs.ceph.com/docs/latest/man/8/rbd/#kernel-rbd-krbd-options
         # For nbd options refer
-        # https://docs.ceph.com/docs/master/man/8/rbd-nbd/#options
+        # https://docs.ceph.com/docs/latest/man/8/rbd-nbd/#options
         # mapOptions: lock_on_read,queue_depth=1024
 
         # (optional) unmapOptions is a comma-separated list of unmap options.
         # For krbd options refer
-        # https://docs.ceph.com/docs/master/man/8/rbd/#kernel-rbd-krbd-options
+        # https://docs.ceph.com/docs/latest/man/8/rbd/#kernel-rbd-krbd-options
         # For nbd options refer
-        # https://docs.ceph.com/docs/master/man/8/rbd-nbd/#options
+        # https://docs.ceph.com/docs/latest/man/8/rbd-nbd/#options
         # unmapOptions: force
 
         # RBD image format. Defaults to "2".
@@ -637,16 +637,16 @@ cephObjectStores:
 #      clusterID: rook-ceph # namespace:cluster
 #      # (optional) mapOptions is a comma-separated list of map options.
 #      # For krbd options refer
-#      # https://docs.ceph.com/docs/master/man/8/rbd/#kernel-rbd-krbd-options
+#      # https://docs.ceph.com/docs/latest/man/8/rbd/#kernel-rbd-krbd-options
 #      # For nbd options refer
-#      # https://docs.ceph.com/docs/master/man/8/rbd-nbd/#options
+#      # https://docs.ceph.com/docs/latest/man/8/rbd-nbd/#options
 #      # mapOptions: lock_on_read,queue_depth=1024
 #
 #      # (optional) unmapOptions is a comma-separated list of unmap options.
 #      # For krbd options refer
-#      # https://docs.ceph.com/docs/master/man/8/rbd/#kernel-rbd-krbd-options
+#      # https://docs.ceph.com/docs/latest/man/8/rbd/#kernel-rbd-krbd-options
 #      # For nbd options refer
-#      # https://docs.ceph.com/docs/master/man/8/rbd-nbd/#options
+#      # https://docs.ceph.com/docs/latest/man/8/rbd-nbd/#options
 #      # unmapOptions: force
 #
 #      # RBD image format. Defaults to "2".

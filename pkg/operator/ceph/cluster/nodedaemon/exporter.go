@@ -143,6 +143,7 @@ func (r *ReconcileNode) createOrUpdateCephExporter(node corev1.Node, tolerations
 				Volumes:                       volumes,
 				PriorityClassName:             cephv1.GetCephExporterPriorityClassName(cephCluster.Spec.PriorityClassNames),
 				TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
+				ServiceAccountName:            k8sutil.DefaultServiceAccount,
 			},
 		}
 		cephv1.GetCephExporterAnnotations(cephCluster.Spec.Annotations).ApplyToObjectMeta(&deploy.Spec.Template.ObjectMeta)
@@ -261,6 +262,7 @@ func EnableCephExporterServiceMonitor(context *clusterd.Context, cephCluster cep
 
 func applyCephExporterLabels(cephCluster cephv1.CephCluster, serviceMonitor *monitoringv1.ServiceMonitor) {
 	if cephCluster.Spec.Labels != nil {
+		cephv1.GetMonitoringLabels(cephCluster.Spec.Labels).OverwriteApplyToObjectMeta(&serviceMonitor.ObjectMeta)
 		if cephExporterLabels, ok := cephCluster.Spec.Labels["exporter"]; ok {
 			if managedBy, ok := cephExporterLabels["rook.io/managedBy"]; ok {
 				relabelConfig := monitoringv1.RelabelConfig{

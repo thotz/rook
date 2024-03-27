@@ -54,15 +54,24 @@ rules:
     verbs: ["patch"]
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshots"]
-    verbs: ["get", "list"]
+    verbs: ["get", "list", "watch", "update", "patch", "create"]
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshotclasses"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshotcontents"]
-    verbs: ["get", "list", "watch", "patch", "update"]
+    verbs: ["get", "list", "watch", "patch", "update", "create"]
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshotcontents/status"]
+    verbs: ["update", "patch"]
+  - apiGroups: ["groupsnapshot.storage.k8s.io"]
+    resources: ["volumegroupsnapshotclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["groupsnapshot.storage.k8s.io"]
+    resources: ["volumegroupsnapshotcontents"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["groupsnapshot.storage.k8s.io"]
+    resources: ["volumegroupsnapshotcontents/status"]
     verbs: ["update", "patch"]
 ---
 kind: ClusterRole
@@ -152,15 +161,24 @@ rules:
     verbs: ["patch"]
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshots"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list", "watch", "update", "patch", "create"]
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshotclasses"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshotcontents"]
-    verbs: ["get", "list", "watch", "patch", "update"]
+    verbs: ["get", "list", "watch", "patch", "update", "create"]
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshotcontents/status"]
+    verbs: ["update", "patch"]
+  - apiGroups: ["groupsnapshot.storage.k8s.io"]
+    resources: ["volumegroupsnapshotclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["groupsnapshot.storage.k8s.io"]
+    resources: ["volumegroupsnapshotcontents"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["groupsnapshot.storage.k8s.io"]
+    resources: ["volumegroupsnapshotcontents/status"]
     verbs: ["update", "patch"]
   - apiGroups: [""]
     resources: ["configmaps"]
@@ -772,6 +790,16 @@ rules:
       - update
       - delete
 ---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: rook-ceph-default
+  namespace: rook-ceph # namespace:cluster
+rules:
+  - apiGroups: [""]
+    resources: [""]
+    verbs: [""]
+---
 # Aspects of ceph-mgr that operate within the cluster's namespace
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1034,6 +1062,20 @@ subjects:
     name: rook-ceph-cmd-reporter
     namespace: rook-ceph # namespace:cluster
 ---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: rook-ceph-default
+  namespace: rook-ceph # namespace:cluster
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: rook-ceph-default
+subjects:
+  - kind: ServiceAccount
+    name: rook-ceph-default
+    namespace: rook-ceph # namespace:cluster
+---
 # Allow the ceph mgr to access resources scoped to the CephCluster namespace necessary for mgr modules
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1151,6 +1193,18 @@ metadata:
     operator: rook
     storage-backend: ceph
     app.kubernetes.io/part-of: rook-ceph-operator
+# imagePullSecrets:
+#   - name: my-registry-secret
+---
+# Service account for other components
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rook-ceph-default
+  namespace: rook-ceph # namespace:cluster
+  labels:
+    operator: rook
+    storage-backend: ceph
 # imagePullSecrets:
 #   - name: my-registry-secret
 ---

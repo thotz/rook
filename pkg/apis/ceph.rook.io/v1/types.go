@@ -1431,6 +1431,11 @@ type ObjectStoreSpec struct {
 	// +nullable
 	DataPool PoolSpec `json:"dataPool,omitempty"`
 
+	// The pool information when configuring RADOS namespaces in existing pools.
+	// +optional
+	// +nullable
+	SharedPools ObjectSharedPoolsSpec `json:"sharedPools"`
+
 	// Preserve pools on object store deletion
 	// +optional
 	PreservePoolsOnDelete bool `json:"preservePoolsOnDelete,omitempty"`
@@ -1463,6 +1468,25 @@ type ObjectStoreSpec struct {
 	// is being used to create buckets. The default is empty.
 	// +optional
 	AllowUsersInNamespaces []string `json:"allowUsersInNamespaces,omitempty"`
+
+	// Hosting settings for the object store
+	// +optional
+	Hosting *ObjectStoreHostingSpec `json:"hosting,omitempty"`
+}
+
+// ObjectSharedPoolsSpec represents object store pool info when configuring RADOS namespaces in existing pools.
+type ObjectSharedPoolsSpec struct {
+	// The metadata pool used for creating RADOS namespaces in the object store
+	// +kubebuilder:validation:XValidation:message="object store shared metadata pool is immutable",rule="self == oldSelf"
+	MetadataPoolName string `json:"metadataPoolName"`
+
+	// The data pool used for creating RADOS namespaces in the object store
+	// +kubebuilder:validation:XValidation:message="object store shared data pool is immutable",rule="self == oldSelf"
+	DataPoolName string `json:"dataPoolName"`
+
+	// Whether the RADOS namespaces should be preserved on deletion of the object store
+	// +optional
+	PreserveRadosNamespaceDataOnDelete bool `json:"preserveRadosNamespaceDataOnDelete"`
 }
 
 // ObjectHealthCheckSpec represents the health check of an object store
@@ -1619,6 +1643,18 @@ type ObjectEndpoints struct {
 	// +optional
 	// +nullable
 	Secure []string `json:"secure"`
+}
+
+// ObjectStoreHostingSpec represents the hosting settings for the object store
+type ObjectStoreHostingSpec struct {
+	// A list of DNS names in which bucket can be accessed via virtual host path. These names need to valid according RFC-1123.
+	// Each domain requires wildcard support like ingress loadbalancer.
+	// Do not include the wildcard itself in the list of hostnames (e.g. use "mystore.example.com" instead of "*.mystore.example.com").
+	// Add all hostnames including user-created Kubernetes Service endpoints to the list.
+	// CephObjectStore Service Endpoints and CephObjectZone customEndpoints are automatically added to the list.
+	// The feature is supported only for Ceph v18 and later versions.
+	// +optional
+	DNSNames []string `json:"dnsNames,omitempty"`
 }
 
 // +genclient
@@ -1865,6 +1901,11 @@ type ObjectZoneSpec struct {
 	// The data pool settings
 	// +nullable
 	DataPool PoolSpec `json:"dataPool"`
+
+	// The pool information when configuring RADOS namespaces in existing pools.
+	// +optional
+	// +nullable
+	SharedPools ObjectSharedPoolsSpec `json:"sharedPools"`
 
 	// If this zone cannot be accessed from other peer Ceph clusters via the ClusterIP Service
 	// endpoint created by Rook, you must set this to the externally reachable endpoint(s). You may

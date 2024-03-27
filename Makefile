@@ -118,11 +118,6 @@ build.version:
 	@mkdir -p $(OUTPUT_DIR)
 	@echo "$(VERSION)" > $(OUTPUT_DIR)/version
 
-# Change how CRDs are generated for CSVs
-ifneq ($(REAL_HOST_PLATFORM),darwin_arm64)
-build.common: export NO_OB_OBC_VOL_GEN=true
-build.common: export MAX_DESC_LEN=0
-endif
 build.common: export SKIP_GEN_CRD_DOCS=true
 build.common: build.version helm.build mod.check crds gen-rbac
 	@$(MAKE) go.init
@@ -134,7 +129,7 @@ do.build.platform.%:
 
 do.build.parallel: $(foreach p,$(PLATFORMS_TO_BUILD_FOR), do.build.platform.$(p))
 
-build: csv-clean build.common ## Only build for linux platform
+build: build.common ## Only build for linux platform
 	@$(MAKE) go.build PLATFORM=linux_$(GOHOSTARCH)
 	@$(MAKE) -C images PLATFORM=linux_$(GOHOSTARCH)
 
@@ -172,7 +167,7 @@ codegen: ${CODE_GENERATOR} ## Run code generators.
 mod.check: go.mod.check ## Check if any go modules changed.
 mod.update: go.mod.update ## Update all go modules.
 
-clean: csv-clean ## Remove all files that are created by building.
+clean: ## Remove all files that are created by building.
 	@$(MAKE) go.mod.clean
 	@$(MAKE) -C images clean
 	@rm -fr $(OUTPUT_DIR) $(WORK_DIR)
@@ -184,10 +179,14 @@ prune: ## Prune cached artifacts.
 	@$(MAKE) -C images prune
 
 # Change how CRDs are generated for CSVs
-csv: export MAX_DESC_LEN=0 # sets the description length to 0 since CSV cannot be bigger than 1MB
-csv: export NO_OB_OBC_VOL_GEN=true
-csv: csv-clean crds ## Generate a CSV file for OLM.
+gen-csv: export MAX_DESC_LEN=0 # sets the description length to 0 since CSV cannot be bigger than 1MB
+gen-csv: export NO_OB_OBC_VOL_GEN=true
+gen-csv: csv-clean crds ## Generate a CSV file for OLM.
 	$(MAKE) -C images/ceph csv
+
+bundle:
+	@echo generate rook bundle
+	@build/bundle/gen-bundle.sh
 
 csv-clean: ## Remove existing OLM files.
 	@$(MAKE) -C images/ceph csv-clean
