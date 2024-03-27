@@ -15,5 +15,3 @@ spec:
   maintainers:
     - name: Red Hat Support
       email: ocs-support@redhat.com
-  provider:
-    name: Red Hat
