@@ -53,6 +53,14 @@ function generate_csv() {
     "${YQ_CMD_WRITE[@]}" "$CSV_FILE_NAME" metadata.annotations.externalClusterScript "$(base64 <$CEPH_EXTERNAL_SCRIPT_FILE)"
     "${YQ_CMD_WRITE[@]}" "$CSV_FILE_NAME" metadata.name "rook-ceph-operator.v${CSV_VERSION}"
 
+    if [[ -n $SKIP_RANGE ]]; then
+        "${YQ_CMD_WRITE[@]}" "$CSV_FILE_NAME" metadata.annotations.[olm.skipRange] "${SKIP_RANGE}"
+    fi
+
+    if [[ -n $REPLACES_CSV_VERSION ]]; then
+        "${YQ_CMD_WRITE[@]}" "$CSV_FILE_NAME" spec.replaces "${REPLACES_CSV_VERSION}"
+    fi
+
     "${YQ_CMD_MERGE[@]}" "$CSV_FILE_NAME" "$ASSEMBLE_FILE_OCP"
 
     # We don't need to include these files in csv as ocs-operator creates its own.
