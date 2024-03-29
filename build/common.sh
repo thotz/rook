@@ -14,13 +14,13 @@ set -u
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-BUILD_ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd -P)
+BUILD_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 SHA256CMD=${SHA256CMD:-shasum -a 256}
 
 DOCKERCMD=${DOCKERCMD:-docker}
 
 export scriptdir
-scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+scriptdir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export OUTPUT_DIR=${BUILD_ROOT}/_output
 export WORK_DIR=${BUILD_ROOT}/.work
 export CACHE_DIR=${BUILD_ROOT}/.cache
@@ -28,7 +28,7 @@ export GOOS
 GOOS=$(go env GOOS)
 export GOARCH
 GOARCH=$(go env GOARCH)
-DEFAULT_CSV_VERSION="4.15.0"
+DEFAULT_CSV_VERSION="4.16.0"
 CSV_VERSION="${CSV_VERSION:-${DEFAULT_CSV_VERSION}}"
 SKIP_RANGE="${SKIP_RANGE:-""}"
 REPLACES_CSV_VERSION="${REPLACES_CSV_VERSION:-""}"
@@ -39,12 +39,12 @@ BUNDLE_IMAGE="${BUNDLE_IMAGE:-${DEFAULT_BUNDLE_IMAGE}}"
 
 function ver() {
     local full_ver maj min bug build
-    full_ver="$1" # functions should name input params for easier understanding
+    full_ver="$1"                               # functions should name input params for easier understanding
     maj="$(echo "${full_ver}" | cut -f1 -d'.')" # when splitting a param, name the components for easier understanding
     min="$(echo "${full_ver}" | cut -f2 -d'.')"
     bug="$(echo "${full_ver}" | cut -f3 -d'.')"
     build="$(echo "${full_ver}" | cut -f4 -d'.')"
-  printf "%d%03d%03d%03d" "${maj}" "${min}" "${bug}" "${build}"
+    printf "%d%03d%03d%03d" "${maj}" "${min}" "${bug}" "${build}"
 }
 
 function check_git() {
@@ -54,7 +54,7 @@ function check_git() {
     local gitversion
     gitversion=$(git --version | cut -d" " -f3)
 
-    if (( $(ver "${gitversion}") > $(ver 2.6.6) && $(ver "${gitversion}") < $(ver 2.8.3) )); then
+    if (($(ver "${gitversion}") > $(ver 2.6.6) && $(ver "${gitversion}") < $(ver 2.8.3))); then
         echo WARN: you are running git version "${gitversion}" which has a bug related to relative
         echo WARN: submodule paths. Please consider upgrading to 2.8.3 or later
     fi
