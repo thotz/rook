@@ -162,6 +162,12 @@ type ClusterSpec struct {
 	// +optional
 	WaitTimeoutForHealthyOSDInMinutes time.Duration `json:"waitTimeoutForHealthyOSDInMinutes,omitempty"`
 
+	// UpgradeOSDRequiresHealthyPGs defines if OSD upgrade requires PGs are clean. If set to `true` OSD upgrade process won't start until PGs are healthy.
+	// This configuration will be ignored if `skipUpgradeChecks` is `true`.
+	// Default is false.
+	// +optional
+	UpgradeOSDRequiresHealthyPGs bool `json:"upgradeOSDRequiresHealthyPGs,omitempty"`
+
 	// A spec for configuring disruption management.
 	// +nullable
 	// +optional
@@ -3016,6 +3022,12 @@ type CephFilesystemSubVolumeGroupSpec struct {
 	// only one out of (export, distributed, random) can be set at a time
 	// +optional
 	Pinning CephFilesystemSubVolumeGroupSpecPinning `json:"pinning,omitempty"`
+	// Quota size of the Ceph Filesystem subvolume group.
+	// +optional
+	Quota *resource.Quantity `json:"quota,omitempty"`
+	// The data pool name for the Ceph Filesystem subvolume group layout, if the default CephFS pool is not desired.
+	// +optional
+	DataPoolName string `json:"dataPoolName"`
 }
 
 // CephFilesystemSubVolumeGroupSpecPinning represents the pinning configuration of SubVolumeGroup

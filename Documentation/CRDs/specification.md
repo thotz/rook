@@ -945,6 +945,20 @@ The default wait timeout is 10 minutes.</p>
 </tr>
 <tr>
 <td>
+<code>upgradeOSDRequiresHealthyPGs</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>UpgradeOSDRequiresHealthyPGs defines if OSD upgrade requires PGs are clean. If set to <code>true</code> OSD upgrade process won&rsquo;t start until PGs are healthy.
+This configuration will be ignored if <code>skipUpgradeChecks</code> is <code>true</code>.
+Default is false.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>disruptionManagement</code><br/>
 <em>
 <a href="#ceph.rook.io/v1.DisruptionManagementSpec">
@@ -1560,6 +1574,30 @@ CephFilesystemSubVolumeGroupSpecPinning
 <p>Pinning configuration of CephFilesystemSubVolumeGroup,
 reference <a href="https://docs.ceph.com/en/latest/cephfs/fs-volumes/#pinning-subvolumes-and-subvolume-groups">https://docs.ceph.com/en/latest/cephfs/fs-volumes/#pinning-subvolumes-and-subvolume-groups</a>
 only one out of (export, distributed, random) can be set at a time</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>quota</code><br/>
+<em>
+k8s.io/apimachinery/pkg/api/resource.Quantity
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Quota size of the Ceph Filesystem subvolume group.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>dataPoolName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The data pool name for the Ceph Filesystem subvolume group layout, if the default CephFS pool is not desired.</p>
 </td>
 </tr>
 </table>
@@ -3702,6 +3740,30 @@ reference <a href="https://docs.ceph.com/en/latest/cephfs/fs-volumes/#pinning-su
 only one out of (export, distributed, random) can be set at a time</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>quota</code><br/>
+<em>
+k8s.io/apimachinery/pkg/api/resource.Quantity
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Quota size of the Ceph Filesystem subvolume group.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>dataPoolName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The data pool name for the Ceph Filesystem subvolume group layout, if the default CephFS pool is not desired.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="ceph.rook.io/v1.CephFilesystemSubVolumeGroupSpecPinning">CephFilesystemSubVolumeGroupSpecPinning
@@ -4366,6 +4428,20 @@ If the timeout exceeds and OSD is not ok to stop, then the operator would skip u
 if <code>continueUpgradeAfterChecksEvenIfNotHealthy</code> is <code>false</code>. If <code>continueUpgradeAfterChecksEvenIfNotHealthy</code> is <code>true</code>, then operator would
 continue with the upgrade of an OSD even if its not ok to stop after the timeout. This timeout won&rsquo;t be applied if <code>skipUpgradeChecks</code> is <code>true</code>.
 The default wait timeout is 10 minutes.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>upgradeOSDRequiresHealthyPGs</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>UpgradeOSDRequiresHealthyPGs defines if OSD upgrade requires PGs are clean. If set to <code>true</code> OSD upgrade process won&rsquo;t start until PGs are healthy.
+This configuration will be ignored if <code>skipUpgradeChecks</code> is <code>true</code>.
+Default is false.</p>
 </td>
 </tr>
 <tr>
