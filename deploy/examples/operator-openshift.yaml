@@ -684,10 +684,10 @@ spec:
                 configMapKeyRef:
                   key: ROOK_CURRENT_NAMESPACE_ONLY
                   name: ocs-operator-config
-            - name: CSI_REMOVE_HOLDER_PODS
+            - name: CSI_DISABLE_HOLDER_PODS
               valueFrom:
                 configMapKeyRef:
-                  key: CSI_REMOVE_HOLDER_PODS
+                  key: CSI_DISABLE_HOLDER_PODS
                   name: ocs-operator-config
             - name: ROOK_ALLOW_MULTIPLE_FILESYSTEMS
               value: "false"
