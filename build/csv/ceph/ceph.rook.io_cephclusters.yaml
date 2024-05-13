@@ -3065,6 +3065,12 @@ spec:
                 type: string
               storage:
                 properties:
+                  deprecatedOSDs:
+                    additionalProperties:
+                      items:
+                        type: integer
+                      type: array
+                    type: object
                   deviceClasses:
                     items:
                       properties:

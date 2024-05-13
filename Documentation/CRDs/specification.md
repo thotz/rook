@@ -4073,6 +4073,16 @@ OSDStatus
 <td>
 </td>
 </tr>
+<tr>
+<td>
+<code>deprecatedOSDs</code><br/>
+<em>
+map[string][]int
+</em>
+</td>
+<td>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="ceph.rook.io/v1.CephVersionSpec">CephVersionSpec
